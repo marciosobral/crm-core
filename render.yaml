@@ -2,6 +2,7 @@ services:
   - type: web
     name: crm-core-api
     runtime: docker
+    region: virginia
     plan: free
     dockerfilePath: ./apps/api/Dockerfile
     dockerContext: .
