@@ -1,0 +1,44 @@
+# Node
+node_modules/
+
+# Build output
+dist/
+.turbo/
+
+# Deploy
+.vercel/
+
+# Local env files
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Local data
+.pglite/
+
+# Logs
+npm-debug.log*
+pnpm-debug.log*
+*.log
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing / Coverage
+coverage/
+
+# Ignore lock files for other package managers
+package-lock.json
+yarn.lock
+
+# Misc
+.worktrees/
+
+# End of file

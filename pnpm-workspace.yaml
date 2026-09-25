@@ -1,0 +1,11 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+catalog:
+  effect: 4.0.0-rc.117
+  "@effect/platform-node": 4.0.0-rc.117
+  "@effect/sql-pg": 4.0.0-rc.117
+  "@effect/sql-pglite": 4.0.0-rc.117
+  "@effect/vitest": 4.0.0-rc.117
+  typescript: 7.0.2
