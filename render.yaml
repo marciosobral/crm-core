@@ -4,6 +4,7 @@ services:
     runtime: docker
     region: virginia
     plan: free
+    autoDeployTrigger: checksPass
     dockerfilePath: ./apps/api/Dockerfile
     dockerContext: .
     healthCheckPath: /health

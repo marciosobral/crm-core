@@ -91,8 +91,10 @@ Never comment what the code already says. Comments are always in English.
 - Work follows the steps in `TASKS.md`. One branch (`MM-DD/description`) and one PR per step.
 - Before implementing a step, settle its "Open decisions" with the user; never pick them silently.
 - Tick checklist items in `TASKS.md` as they are done, in the same commit as the work.
+- When a step's PR is merged, tag the merge commit on `main` as `v0.<step>.0` (e.g. `v0.1.0` after step 1). Tags only mark milestones; they do not trigger deploys.
 
 ## Git
 
+- `main` is protected: every change lands through a PR with the `check` CI job green. Never commit to `main` directly.
 - Conventional commits, one line: `feat: add lead creation endpoint`.
 - Never push or open a PR unless explicitly asked.
