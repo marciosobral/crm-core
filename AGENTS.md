@@ -86,6 +86,12 @@ Never comment what the code already says. Comments are always in English.
 - Routes are file-based in `apps/web/src/routes`. `routeTree.gen.ts` is generated; never edit it.
 - Server state goes through TanStack Query with `queryFn: () => runApi((client) => ...)`.
 
+## Workflow
+
+- Work follows the steps in `TASKS.md`. One branch (`MM-DD/description`) and one PR per step.
+- Before implementing a step, settle its "Open decisions" with the user; never pick them silently.
+- Tick checklist items in `TASKS.md` as they are done, in the same commit as the work.
+
 ## Git
 
 - Conventional commits, one line: `feat: add lead creation endpoint`.
