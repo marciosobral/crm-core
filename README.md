@@ -12,7 +12,7 @@ A CRM built as an end-to-end TypeScript monorepo, with [Effect](https://effect.w
 | Database | PostgreSQL 18 via `@effect/sql-pg`; in-process PGlite via `@effect/sql-pglite` |
 | Web | React 19 SPA with Vite, TanStack Router (file-based), TanStack Query, Tailwind v4 |
 | Tests | Vitest + `@effect/vitest` |
-| Deploy | API on Render (Docker), database on Neon, SPA on Vercel |
+| Deploy | API on Render (Docker), database on Neon, SPA on Cloudflare Workers (static assets) |
 
 ## Structure
 
@@ -79,8 +79,8 @@ pnpm dev
 |---|---|---|---|
 | API | Render (free, Docker) | `crm-core-api` | `render.yaml` (Blueprint), `apps/api/Dockerfile` |
 | Database | Neon (free, Postgres 18) | `crm-core-db` | `DATABASE_URL` on Render |
-| Web | Vercel (Hobby) | `crm-core-web` | Root Directory `apps/web`, `apps/web/vercel.json` |
+| Web | Cloudflare Workers (free, static assets) | `crm-core-web` | `apps/web/wrangler.jsonc` |
 
-The web app is served from `crm.<domain>` and the API from `api.<domain>`. Since both are on the same site, session cookies work without relying on third-party cookies.
+The web app is served from `crm-core.marciosobral.com` and the API from `crm-core-api.marciosobral.com`. Since both are on the same site, session cookies work without relying on third-party cookies.
 
 Render's free instance sleeps after 15 minutes without traffic, so **the first request after that can take about a minute**.

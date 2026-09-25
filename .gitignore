@@ -6,7 +6,7 @@ dist/
 .turbo/
 
 # Deploy
-.vercel/
+.wrangler/
 
 # Local env files
 .env
