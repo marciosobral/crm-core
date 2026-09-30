@@ -11,7 +11,7 @@ import {
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { Option, Schema } from "effect"
 import { Plus } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useEffectEvent, useState } from "react"
 import { BoardColumn, type MoveFocusRequest } from "../../../components/deals/board-column.tsx"
 import { boardColumns } from "../../../components/deals/board-columns.ts"
 import { FiltersBar } from "../../../components/layout/filters-bar.tsx"
@@ -48,6 +48,9 @@ export const Route = createFileRoute("/_authenticated/deals/")({
   component: DealBoard,
 })
 
+// Below lg the target columns are off-screen, so dragging near the edge must scroll the board.
+const registerAutoScroll = (element: HTMLDivElement) => autoScrollForElements({ element })
+
 const dealCountLabel = (count: number) => {
   if (count === 0) return "Nenhum negócio encontrado"
   return count === 1 ? "1 negócio encontrado" : `${count} negócios encontrados`
@@ -70,7 +73,6 @@ function DealBoard() {
   const [moveError, setMoveError] = useState<string | undefined>(undefined)
   const [announcement, setAnnouncement] = useState("")
   const [focusRequest, setFocusRequest] = useState<MoveFocusRequest | undefined>(undefined)
-  const [boardElement, setBoardElement] = useState<HTMLDivElement | null>(null)
   const listQueryKey = dealsQueryOptions(search).queryKey
 
   const canSeeAll = hasPermission(user, "deal.see_all")
@@ -113,30 +115,23 @@ function DealBoard() {
       ]),
   })
 
-  // The monitor is registered once; the ref always points at the latest deals and mutation.
-  const latestRef = useRef({ deals, move: moveMutation.mutate })
-  latestRef.current = { deals, move: moveMutation.mutate }
+  const moveDroppedDeal = useEffectEvent((dealId: unknown, targetStatus: unknown) => {
+    const status = Schema.decodeUnknownOption(OpenDealStatus)(targetStatus)
+    const deal = deals?.find((item) => item.id === dealId)
+    if (Option.isSome(status) && deal && deal.status !== status.value)
+      moveMutation.mutate({ deal, status: status.value })
+  })
 
   useEffect(
     () =>
       monitorForElements({
         onDrop: ({ source, location }) => {
           const target = location.current.dropTargets[0]
-          if (!target) return
-          const status = Schema.decodeUnknownOption(OpenDealStatus)(target.data.status)
-          const deal = latestRef.current.deals?.find((item) => item.id === source.data.dealId)
-          if (Option.isSome(status) && deal && deal.status !== status.value)
-            latestRef.current.move({ deal, status: status.value })
+          if (target) moveDroppedDeal(source.data.dealId, target.data.status)
         },
       }),
     [],
   )
-
-  // Below lg the target columns are off-screen, so dragging near the edge must scroll the board.
-  useEffect(() => {
-    if (!boardElement) return
-    return autoScrollForElements({ element: boardElement })
-  }, [boardElement])
 
   return (
     <div className="flex h-dvh min-w-0 flex-col">
@@ -216,7 +211,7 @@ function DealBoard() {
         </div>
       ) : (
         <div
-          ref={setBoardElement}
+          ref={registerAutoScroll}
           className={cn(
             "flex min-h-0 flex-1 scroll-px-4 snap-x snap-mandatory gap-4 overflow-x-auto p-4 transition-opacity md:scroll-px-8 md:p-8 lg:snap-none",
             dealsQuery.isPlaceholderData && "opacity-60",

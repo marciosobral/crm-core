@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useRef } from "react"
+import { type RefObject, useEffect, useEffectEvent } from "react"
 
 type AnchoredPopoverOptions = {
   isOpen: boolean
@@ -23,10 +23,7 @@ export function useAnchoredPopover({
   matchAnchorWidth = false,
   onClose,
 }: AnchoredPopoverOptions) {
-  const onCloseRef = useRef(onClose)
-  useEffect(() => {
-    onCloseRef.current = onClose
-  })
+  const close = useEffectEvent(onClose)
 
   useEffect(() => {
     const popover = popoverRef.current
@@ -46,7 +43,6 @@ export function useAnchoredPopover({
     }
     position()
 
-    const close = () => onCloseRef.current()
     const closeOnOutsideTarget = (event: Event) => {
       if (!(event.target instanceof Node)) return
       const isInside =

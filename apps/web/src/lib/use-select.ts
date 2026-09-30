@@ -109,6 +109,7 @@ export function useSelect({
         options.findIndex((option) => option.value === value),
       ),
     )
+    if (triggerElementRef.current instanceof HTMLInputElement) triggerElementRef.current.select()
   }
 
   const close = () => {
@@ -141,11 +142,6 @@ export function useSelect({
     matchAnchorWidth,
     onClose: close,
   })
-
-  useEffect(() => {
-    if (isOpen && typedText === undefined && triggerElementRef.current instanceof HTMLInputElement)
-      triggerElementRef.current.select()
-  }, [isOpen, typedText])
 
   useEffect(() => {
     if (isOpen && currentIndex >= 0)
