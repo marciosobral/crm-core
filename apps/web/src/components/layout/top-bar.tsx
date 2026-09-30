@@ -21,7 +21,7 @@ export function TopBar({ title, children }: TopBarProps) {
       >
         <Menu className="size-5" aria-hidden="true" />
       </Button>
-      <h1 className="min-w-0 flex-1 truncate font-heading text-xl leading-none font-extrabold text-white md:text-2xl">
+      <h1 className="min-w-0 flex-1 truncate font-heading text-xl leading-tight font-extrabold text-white md:text-2xl">
         {title}
       </h1>
       {children && <div className="flex shrink-0 items-center gap-3 md:gap-6">{children}</div>}
