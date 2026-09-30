@@ -6,18 +6,18 @@ import {
   TooManyLoginAttempts,
   User,
 } from "@crm/contract"
-import { Effect, Redacted, Result } from "effect"
+import { Effect, Option, Redacted, Result } from "effect"
 import { HttpEffect, HttpServerResponse } from "effect/unstable/http"
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
-import { SqlClient } from "effect/unstable/sql"
 import { LoginAttempts } from "./login-attempts.ts"
 import { hashPassword, verifyPassword } from "./password.ts"
+import { AuthRepository } from "./repository.ts"
 import { hashSessionToken, makeSessionToken, sessionMaxAge } from "./session-token.ts"
 import { failUnavailable } from "./unavailable.ts"
 
 export const AuthLive = HttpApiBuilder.group(CrmApi, "auth", (handlers) =>
   Effect.gen(function* () {
-    const sql = yield* SqlClient.SqlClient
+    const repository = yield* AuthRepository
     const loginAttempts = yield* LoginAttempts
     // Unknown emails are still verified against this hash so both failures take the same time.
     const dummyHash = yield* hashPassword(Redacted.make("dummy-password"))
@@ -27,16 +27,7 @@ export const AuthLive = HttpApiBuilder.group(CrmApi, "auth", (handlers) =>
         Effect.gen(function* () {
           const password = Redacted.make(payload.password)
           const verifyLogin = Effect.gen(function* () {
-            const rows = yield* sql<{
-              id: string
-              name: string
-              email: string
-              passwordHash: string
-            }>`
-              SELECT id, name, email, password_hash AS "passwordHash"
-              FROM users WHERE lower(email) = lower(${payload.email})
-            `
-            const row = rows[0]
+            const row = Option.getOrUndefined(yield* repository.findUserByEmail(payload.email))
             const isValid = yield* loginAttempts.withVerificationSlot(
               verifyPassword(password, row?.passwordHash ?? dummyHash),
             )
@@ -77,12 +68,9 @@ export const AuthLive = HttpApiBuilder.group(CrmApi, "auth", (handlers) =>
             return yield* new InvalidCredentials()
           }
           yield* loginAttempts.clear(payload.email)
-          yield* sql`DELETE FROM sessions WHERE user_id = ${row.id} AND expires_at <= now()`
+          yield* repository.deleteExpiredSessions(row.id)
           const token = makeSessionToken()
-          yield* sql`
-            INSERT INTO sessions (id, user_id, expires_at)
-            VALUES (${hashSessionToken(token)}, ${row.id}, now() + ${sessionMaxAge}::interval)
-          `
+          yield* repository.createSession({ id: hashSessionToken(token), userId: row.id })
           yield* HttpApiBuilder.securitySetCookie(sessionCookie, token, {
             sameSite: "lax",
             path: "/",
@@ -100,9 +88,9 @@ export const AuthLive = HttpApiBuilder.group(CrmApi, "auth", (handlers) =>
       .handle("logout", () =>
         Effect.gen(function* () {
           const token = yield* HttpApiBuilder.securityDecode(sessionCookie)
-          yield* sql`DELETE FROM sessions WHERE id = ${hashSessionToken(Redacted.value(token))}`.pipe(
-            Effect.catchTag("SqlError", failUnavailable),
-          )
+          yield* repository
+            .deleteSession(hashSessionToken(Redacted.value(token)))
+            .pipe(Effect.catchTag("SqlError", failUnavailable))
           yield* HttpApiBuilder.securitySetCookie(sessionCookie, "", {
             sameSite: "lax",
             path: "/",

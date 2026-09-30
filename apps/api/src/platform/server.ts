@@ -13,6 +13,7 @@ import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { AuthLive } from "../auth/handlers.ts"
 import { LoginAttemptsLive } from "../auth/login-attempts.ts"
 import { AuthorizationLive } from "../auth/middleware.ts"
+import { AuthRepositoryLive } from "../auth/repository.ts"
 import { HealthLive } from "../health/handlers.ts"
 import { ServerConfig } from "./config.ts"
 import { DatabaseLive } from "./db.ts"
@@ -85,6 +86,7 @@ export const ApiRoutes = HttpApiBuilder.layer(CrmApi).pipe(
     CrossOriginGuard,
   ]),
   Layer.provide(AuthorizationLive),
+  Layer.provide(AuthRepositoryLive),
 )
 
 export const ApiLive = ApiRoutes.pipe(Layer.provide(DatabaseLive))

@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest"
-import { Effect, Redacted } from "effect"
+import { Effect, Redacted, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql"
 import { verifyPassword } from "../../auth/password.ts"
 import { demoPassword, TestDatabase } from "../../testing/database.ts"
@@ -7,9 +7,15 @@ import { demoPassword, TestDatabase } from "../../testing/database.ts"
 it.effect("creates the tables and seeds the sellers with hashed passwords", () =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
-    const users = yield* sql<{ email: string; passwordHash: string }>`
+    const users = yield* sql`
       SELECT email, password_hash AS "passwordHash" FROM users ORDER BY email
-    `
+    `.pipe(
+      Effect.flatMap(
+        Schema.decodeUnknownEffect(
+          Schema.Array(Schema.Struct({ email: Schema.String, passwordHash: Schema.String })),
+        ),
+      ),
+    )
     expect(users.map(({ email }) => email)).toEqual([
       "ana.souza@crm-core.dev",
       "bruno.lima@crm-core.dev",
@@ -17,7 +23,11 @@ it.effect("creates the tables and seeds the sellers with hashed passwords", () =
     ])
     const demo = users.find(({ email }) => email === "demo@crm-core.dev")
     expect(yield* verifyPassword(Redacted.make(demoPassword), demo?.passwordHash ?? "")).toBe(true)
-    const sessions = yield* sql<{ count: number }>`SELECT count(*)::int AS count FROM sessions`
-    expect(sessions[0]?.count).toBe(0)
+    const sessions = yield* sql`SELECT count(*)::int AS count FROM sessions`.pipe(
+      Effect.flatMap(
+        Schema.decodeUnknownEffect(Schema.Tuple([Schema.Struct({ count: Schema.Number })])),
+      ),
+    )
+    expect(sessions[0].count).toBe(0)
   }).pipe(Effect.provide(TestDatabase)),
 )
