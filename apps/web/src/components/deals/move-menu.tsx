@@ -2,6 +2,7 @@ import { OpenDealStatus } from "@crm/contract"
 import { ArrowRightLeft } from "lucide-react"
 import { useEffect, useId, useRef, useState } from "react"
 import { dealStatusLabels } from "../../lib/labels.ts"
+import { useAnchoredPopover } from "../../lib/use-anchored-popover.ts"
 
 type MoveMenuProps = {
   dealTitle: string
@@ -30,22 +31,19 @@ export function MoveMenu({
     onButtonFocused()
   }, [shouldFocusButton, onButtonFocused])
 
+  useAnchoredPopover({
+    isOpen,
+    anchorRef: buttonRef,
+    containerRef: wrapperRef,
+    popoverRef: listRef,
+    align: "end",
+    onClose: () => setIsOpen(false),
+  })
+
   useEffect(() => {
-    const list = listRef.current
-    const button = buttonRef.current
-    if (!isOpen || !list || !button) return
-    // The list lives in the top layer so no overflow container can clip it.
-    list.showPopover()
-    const rect = button.getBoundingClientRect()
-    const hasRoomBelow = rect.bottom + 4 + list.offsetHeight <= window.innerHeight
-    list.style.top = `${hasRoomBelow ? rect.bottom + 4 : Math.max(4, rect.top - 4 - list.offsetHeight)}px`
-    list.style.left = `${Math.max(4, rect.right - list.offsetWidth)}px`
+    if (!isOpen) return
     const getItems = () => Array.from(listRef.current?.querySelectorAll("button") ?? [])
     getItems()[0]?.focus({ preventScroll: true })
-    const closeOnOutsideTarget = (event: Event) => {
-      if (event.target instanceof Node && !wrapperRef.current?.contains(event.target))
-        setIsOpen(false)
-    }
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault()
@@ -59,20 +57,8 @@ export function MoveMenu({
         items.at((index + step) % items.length)?.focus()
       }
     }
-    document.addEventListener("pointerdown", closeOnOutsideTarget)
-    document.addEventListener("focusin", closeOnOutsideTarget)
-    const close = () => setIsOpen(false)
     document.addEventListener("keydown", handleKey)
-    document.addEventListener("scroll", close, true)
-    window.addEventListener("resize", close)
-    return () => {
-      if (list.matches(":popover-open")) list.hidePopover()
-      document.removeEventListener("scroll", close, true)
-      window.removeEventListener("resize", close)
-      document.removeEventListener("pointerdown", closeOnOutsideTarget)
-      document.removeEventListener("focusin", closeOnOutsideTarget)
-      document.removeEventListener("keydown", handleKey)
-    }
+    return () => document.removeEventListener("keydown", handleKey)
   }, [isOpen])
 
   return (
