@@ -25,3 +25,20 @@ export const makeTestApi = Effect.gen(function* () {
     sql: Context.get(database, SqlClient.SqlClient),
   }
 })
+
+const loginRequest = (email: string, password: string) =>
+  new Request("http://localhost/auth/login", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  })
+
+export const loginAs = (
+  send: (request: Request) => Effect.Effect<Response>,
+  email: string,
+  password: string,
+) =>
+  Effect.map(
+    send(loginRequest(email, password)),
+    (response) => response.headers.get("set-cookie")?.split(";")[0] ?? "",
+  )

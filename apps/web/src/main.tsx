@@ -1,26 +1,43 @@
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { createRouter, RouterProvider } from "@tanstack/react-router"
+import { HttpApiError } from "effect/unstable/httpapi"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import { ErrorScreen, PendingScreen } from "./components/layout/status-screen.tsx"
-import { authQueryKey, isUnauthorized } from "./lib/auth.ts"
+import { authQueryKey } from "./lib/auth.ts"
 import { routeTree } from "./routeTree.gen.ts"
 import "./styles.css"
 
-// Skips "auth" queries: their route guards already redirect, and handling both navigated twice.
+// The history location changes synchronously on navigate, unlike router.state, so concurrent 401s do not overwrite the redirect target with /login.
 const redirectToLogin = (error: unknown) => {
-  if (!isUnauthorized(error)) return
+  if (
+    !(error instanceof HttpApiError.Unauthorized) ||
+    router.history.location.pathname === "/login"
+  )
+    return
   queryClient.clear()
-  void router.navigate({ to: "/login", search: { redirect: router.state.location.href } })
+  void router.navigate({ to: "/login", search: { redirect: router.history.location.href } })
 }
 
 const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Retrying a 401 only delays the login redirect (and retries pause while the tab is hidden).
+      retry: (failureCount, error) =>
+        !(error instanceof HttpApiError.Unauthorized) && failureCount < 3,
+    },
+  },
+  // Skips "auth" queries and mutations: their route guards and handlers already navigate, and handling both navigated twice.
   queryCache: new QueryCache({
     onError: (error, query) => {
       if (query.queryKey[0] !== authQueryKey) redirectToLogin(error)
     },
   }),
-  mutationCache: new MutationCache({ onError: redirectToLogin }),
+  mutationCache: new MutationCache({
+    onError: (error, _variables, _onMutateResult, mutation) => {
+      if (mutation.options.mutationKey?.[0] !== authQueryKey) redirectToLogin(error)
+    },
+  }),
 })
 const router = createRouter({
   routeTree,

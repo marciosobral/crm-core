@@ -27,10 +27,12 @@ Open decisions: session storage (database table or signed token), roles (sellers
 
 ## 2. Leads
 
-- [ ] `leads` table and migration
-- [ ] Contract: create and list leads, with validation errors
-- [ ] Web: lead list and create lead screens (Figma)
-- [ ] Tests: create, list, validation failure
+- [x] Roles (supervisor, seller) mapped to permissions; permissions checked by the API and exposed to the web
+- [x] `leads` table and migration
+- [x] Contract: create and list leads, with validation errors; list sellers
+- [x] Sellers see only their own leads; supervisors see all and assign the responsible seller
+- [x] Web: lead list (search, seller filter) and create lead screens (Figma)
+- [x] Tests: create, list, validation failure, permissions
 
 Open decisions: lead fields (name, email, phone, company, source), whether leads are shared or owned by a seller.
 
@@ -40,6 +42,7 @@ Open decisions: lead fields (name, email, phone, company, source), whether leads
 - [ ] Contract: create deal, list deals by status, change status
 - [ ] Web: create deal screen (Figma), kanban board with one column per status
 - [ ] Move deals between columns (drag and drop, with a non-drag fallback)
+- [ ] Lead status derived from its deals (no deal: "Novo"), with a column and filter in the lead list
 - [ ] Tests: create, invalid lead, status transitions
 
 Open decisions: status list and allowed transitions, deal fields (title, value, expected close date), whether won/lost are board columns.
@@ -59,6 +62,7 @@ Open decisions: loss reason, whether a closed deal can be reopened.
 - [ ] Contract: add and list comments
 - [ ] Web: comment history on lead and deal details
 - [ ] From the kanban card: add a comment
+- [ ] Lead list: last interaction column
 - [ ] Tests: add, list, comment on a missing lead or deal
 
 Open decisions: editing and deleting comments.
@@ -75,7 +79,16 @@ Open decisions: which feature, which provider and model, cost and rate limits.
 
 ## 7. Release readiness
 
+- [ ] Web tests for the main flows (login, create lead)
 - [ ] README: concise "Technical decisions" section
 - [ ] Review README setup steps from a clean clone
 - [ ] Make the repository public
 - [ ] Final check of the live app with the demo user
+
+## Out of scope
+
+Not planned; revisit only if needed.
+
+- Editing and deleting leads
+- Pagination of the lead list
+- A sellers management screen (sellers come from the seed)

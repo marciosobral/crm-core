@@ -66,6 +66,8 @@ Never comment what the code already says. Comments are always in English.
 - **Dependencies** are services provided by Layers. Resolve them when building the handler group, not inside each handler (see `apps/api/src/health/handlers.ts`).
 - **Config**: read env vars only through `Config` in `apps/api/src/platform/config.ts`. Secrets use `Config.Redacted`. Every new variable also goes into the matching `.env.example` and the README table.
 - **SQL**: use the `sql` template from `SqlClient`; one statement per call (multi-statement strings fail).
+  - Queries live in the feature's repository service (`src/<feature>/repository.ts`, e.g. `AuthRepository`); handlers and middleware never write SQL. Migrations are the exception.
+  - Build each query with `SqlSchema` (`findAll`, `findOneOption`, `void`) and `Request`/`Result` schemas so rows are decoded, never `sql<Row>`, which only asserts the row type. Tests that read rows decode them with `Schema` too.
 - **Imports** come from `effect/unstable/*` in this RC. All Effect packages share one version via the pnpm catalog (`pnpm-workspace.yaml`); never pin them individually.
 
 ### Errors

@@ -1,14 +1,15 @@
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Outlet, redirect, useRouter } from "@tanstack/react-router"
+import { HttpApiError } from "effect/unstable/httpapi"
 import { AppShell } from "../components/layout/app-shell.tsx"
 import { UserFooter } from "../components/layout/user-footer.tsx"
 import { runApi } from "../lib/api-client.ts"
-import { isUnauthorized, meQueryOptions } from "../lib/auth.ts"
+import { authQueryKey, meQueryOptions } from "../lib/auth.ts"
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: ({ context, location }) =>
     context.queryClient.ensureQueryData(meQueryOptions).catch((error: unknown) => {
-      if (isUnauthorized(error))
+      if (error instanceof HttpApiError.Unauthorized)
         throw redirect({ to: "/login", search: { redirect: location.href } })
       throw error
     }),
@@ -21,6 +22,7 @@ function AuthenticatedLayout() {
   const router = useRouter()
 
   const logoutMutation = useMutation({
+    mutationKey: [authQueryKey, "logout"],
     mutationFn: () => runApi((client) => client.auth.logout()),
     // Signing out locally must not depend on the API call succeeding.
     onSettled: () => {

@@ -6,11 +6,14 @@ import {
   HttpApiMiddleware,
   HttpApiSecurity,
 } from "effect/unstable/httpapi"
+import { Permission, Role } from "./permissions.ts"
 
 export class User extends Schema.Class<User>("User")({
   id: Schema.String,
   name: Schema.String,
   email: Schema.String,
+  role: Role,
+  permissions: Schema.Array(Permission),
 }) {}
 
 export const LoginPayload = Schema.Struct({

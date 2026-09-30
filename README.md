@@ -74,18 +74,20 @@ pnpm dev
 | api | `PORT` | HTTP port (default `3001`) |
 | api | `CORS_ORIGIN` | web origin allowed by CORS and for unsafe requests (exact match, no trailing slash) (default `http://localhost:5173`) |
 | api | `NODE_ENV` | `development`, `test` or `production` (any other value fails startup); `production` refuses the example seed passwords (default `development`; the Dockerfile sets `production`) |
-| api | `SEED_DEMO_PASSWORD` | password of the seeded demo seller (min. 12 characters, applied once by the seed migration) |
-| api | `SEED_SELLER_PASSWORD` | password of the other seeded sellers (same rules) |
+| api | `SEED_DEMO_PASSWORD` | password of the seeded demo account (supervisor) (min. 12 characters, applied once by the seed migration) |
+| api | `SEED_SELLER_PASSWORD` | password of the other seeded accounts (the sellers) (same rules) |
 | web | `VITE_API_URL` | API base URL |
 
 ## Demo accounts
 
-The seed migration creates three fictional sellers. Their passwords come from `SEED_DEMO_PASSWORD` and `SEED_SELLER_PASSWORD`, never from the code. With `NODE_ENV=production` (set by the API Dockerfile), the seed refuses the public example passwords from `.env.example`.
+The seed migration creates three fictional accounts (one supervisor, two sellers). Their passwords come from `SEED_DEMO_PASSWORD` and `SEED_SELLER_PASSWORD`, never from the code. With `NODE_ENV=production` (set by the API Dockerfile), the seed refuses the public example passwords from `.env.example`.
 
-| Account | Local password (`apps/api/.env.example`) |
-|---|---|
-| `demo@crm-core.dev` | `demo-crm-1234` |
-| `ana.souza@crm-core.dev`, `bruno.lima@crm-core.dev` | `seller-crm-1234` |
+| Account | Role | Local password (`apps/api/.env.example`) |
+|---|---|---|
+| `demo@crm-core.dev` | Supervisor | `demo-crm-1234` |
+| `ana.souza@crm-core.dev`, `bruno.lima@crm-core.dev` | Seller | `seller-crm-1234` |
+
+Supervisors see every lead and choose its responsible seller; sellers see and create only their own leads.
 
 The deployed app is not public: its passwords are set on Render and shared on request.
 
@@ -100,3 +102,12 @@ The deployed app is not public: its passwords are set on Render and shared on re
 The web app is served from `crm-core.marciosobral.com` and the API from `crm-core-api.marciosobral.com`. Since both are on the same site, session cookies work without relying on third-party cookies.
 
 Render's free instance sleeps after 15 minutes without traffic, so **the first request after that can take about a minute**.
+
+Deploys run from the `deploy` job in `.github/workflows/ci.yml` on every push to `main`, after `check` passes. When `apps/api`, `packages/contract` or the workspace manifests changed since the commit Render has live (or that commit cannot be determined), it deploys the API on Render and waits until it is live; then it deploys the web app with Wrangler. The web app never reaches users before the API it calls. Required GitHub settings:
+
+| Name | Kind | Value |
+|---|---|---|
+| `RENDER_API_KEY` | Secret | Render API key |
+| `RENDER_SERVICE_ID` | Variable | ID of `crm-core-api` (`srv-...`) |
+| `CLOUDFLARE_API_TOKEN` | Secret | Token with the "Edit Cloudflare Workers" template |
+| `CLOUDFLARE_ACCOUNT_ID` | Variable | Cloudflare account ID |

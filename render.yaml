@@ -4,15 +4,10 @@ services:
     runtime: docker
     region: virginia
     plan: free
-    autoDeployTrigger: checksPass
+    autoDeployTrigger: "off"
     dockerfilePath: ./apps/api/Dockerfile
     dockerContext: .
     healthCheckPath: /health
-    buildFilter:
-      paths:
-        - apps/api/**
-        - packages/contract/**
-        - pnpm-lock.yaml
     envVars:
       - key: DATABASE_URL
         sync: false

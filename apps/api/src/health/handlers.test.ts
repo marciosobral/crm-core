@@ -4,11 +4,15 @@ import { expect, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 import { HttpApiTest } from "effect/unstable/httpapi"
 import { AuthorizationLive } from "../auth/middleware.ts"
+import { AuthRepositoryLive } from "../auth/repository.ts"
 import { TestDatabase } from "../testing/database.ts"
 import { HealthLive } from "./handlers.ts"
 
 const TestLayer = Layer.mergeAll(
-  Layer.mergeAll(HealthLive, AuthorizationLive).pipe(Layer.provide(TestDatabase)),
+  Layer.mergeAll(HealthLive, AuthorizationLive).pipe(
+    Layer.provide(AuthRepositoryLive),
+    Layer.provide(TestDatabase),
+  ),
   NodeHttpServer.layerHttpServices,
 )
 

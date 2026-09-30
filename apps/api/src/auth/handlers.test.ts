@@ -14,6 +14,10 @@ const loginRequest = (email: string, password: string) =>
 const meRequest = (cookie?: string) =>
   new Request("http://localhost/auth/me", { headers: cookie ? { cookie } : {} })
 
+const decodeSessionRows = Schema.decodeUnknownEffect(
+  Schema.Array(Schema.Struct({ id: Schema.String, expired: Schema.Boolean })),
+)
+
 const sessionCookieOf = (response: Response) =>
   response.headers.get("set-cookie")?.split(";")[0] ?? ""
 
@@ -116,17 +120,18 @@ it.effect("deletes only the logging-in user's expired sessions", () =>
     yield* send(loginRequest("ana.souza@crm-core.dev", "seller-test-password"))
     yield* send(loginRequest("demo@crm-core.dev", demoPassword))
     yield* sql`UPDATE sessions SET expires_at = now() - interval '1 second'`
-    const expiredIds = yield* sql<{ id: string }>`
-      SELECT s.id FROM sessions s JOIN users u ON u.id = s.user_id WHERE u.email = 'demo@crm-core.dev'`
-    yield* send(loginRequest("demo@crm-core.dev", demoPassword))
-    const countFor = (email: string) =>
-      sql<{ id: string; expired: boolean }>`
+    const sessionsFor = (email: string) =>
+      sql`
         SELECT s.id, s.expires_at < now() AS expired
-        FROM sessions s JOIN users u ON u.id = s.user_id WHERE u.email = ${email}`
-    const ana = yield* countFor("ana.souza@crm-core.dev")
+        FROM sessions s JOIN users u ON u.id = s.user_id WHERE u.email = ${email}`.pipe(
+        Effect.flatMap(decodeSessionRows),
+      )
+    const expiredIds = yield* sessionsFor("demo@crm-core.dev")
+    yield* send(loginRequest("demo@crm-core.dev", demoPassword))
+    const ana = yield* sessionsFor("ana.souza@crm-core.dev")
     expect(ana).toHaveLength(1)
     expect(ana[0]?.expired).toBe(true)
-    const demo = yield* countFor("demo@crm-core.dev")
+    const demo = yield* sessionsFor("demo@crm-core.dev")
     expect(demo).toHaveLength(1)
     expect(demo[0]?.expired).toBe(false)
     expect(demo[0]?.id).not.toBe(expiredIds[0]?.id)
@@ -197,5 +202,32 @@ it.effect("admits exactly five of ten parallel wrong-password logins", () =>
     const statuses = responses.map((response) => response.status)
     expect(statuses.filter((status) => status === 401)).toHaveLength(5)
     expect(statuses.filter((status) => status === 429)).toHaveLength(5)
+  }).pipe(Effect.scoped),
+)
+
+it.effect("returns the role and permissions of the current user", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    const accounts = [
+      {
+        email: "demo@crm-core.dev",
+        password: demoPassword,
+        expected: {
+          role: "SUPERVISOR",
+          permissions: ["lead.create", "lead.see_all", "lead.assign_any"],
+        },
+      },
+      {
+        email: "ana.souza@crm-core.dev",
+        password: "seller-test-password",
+        expected: { role: "SELLER", permissions: ["lead.create"] },
+      },
+    ]
+    for (const { email, password, expected } of accounts) {
+      const login = yield* send(loginRequest(email, password))
+      expect(yield* Effect.promise(() => login.json())).toMatchObject(expected)
+      const me = yield* send(meRequest(sessionCookieOf(login)))
+      expect(yield* Effect.promise(() => me.json())).toMatchObject(expected)
+    }
   }).pipe(Effect.scoped),
 )

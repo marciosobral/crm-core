@@ -1,22 +1,26 @@
-import type { ComponentPropsWithoutRef } from "react"
+import { type ComponentPropsWithoutRef, useId } from "react"
 import { cn } from "../../lib/cn.ts"
+import { controlClasses, Field } from "./field.tsx"
 
-type TextFieldProps = ComponentPropsWithoutRef<"input"> & { label: string }
+export type TextFieldProps = ComponentPropsWithoutRef<"input"> & {
+  label: string
+  error?: string | undefined
+}
 
-export function TextField({ label, required, className, ...inputProps }: TextFieldProps) {
+export function TextField({ label, required, error, className, ...inputProps }: TextFieldProps) {
+  const id = useId()
+  const errorId = `${id}-error`
+
   return (
-    <label className="block space-y-1.5">
-      <span className="text-xs font-medium text-zinc-400">
-        {label} {required && <span className="text-brand">*</span>}
-      </span>
+    <Field label={label} required={required} error={error} controlId={id} errorId={errorId}>
       <input
         required={required}
-        className={cn(
-          "w-full rounded-lg border border-line bg-canvas px-3 py-2.5 text-sm outline-none focus:border-brand focus-visible:ring-2 focus-visible:ring-brand/40",
-          className,
-        )}
+        className={cn(controlClasses, className)}
         {...inputProps}
+        id={id}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
       />
-    </label>
+    </Field>
   )
 }

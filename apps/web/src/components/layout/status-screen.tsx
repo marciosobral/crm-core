@@ -6,14 +6,12 @@ type StatusScreenProps = { message: string; action?: ReactNode }
 
 function StatusScreen({ message, action }: StatusScreenProps) {
   return action ? (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center">
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 text-center">
       <p className="text-sm text-zinc-300">{message}</p>
       {action}
-    </main>
+    </div>
   ) : (
-    <main className="flex min-h-screen items-center justify-center text-sm text-zinc-400">
-      {message}
-    </main>
+    <div className="flex flex-1 items-center justify-center text-sm text-muted">{message}</div>
   )
 }
 

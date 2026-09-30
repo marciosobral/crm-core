@@ -25,14 +25,89 @@
     format("woff");
 }
 
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src:
+    url("../node_modules/@fontsource/geist-sans/files/geist-sans-latin-400-normal.woff2")
+    format("woff2"),
+    url("../node_modules/@fontsource/geist-sans/files/geist-sans-latin-400-normal.woff")
+    format("woff");
+}
+
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src:
+    url("../node_modules/@fontsource/geist-sans/files/geist-sans-latin-500-normal.woff2")
+    format("woff2"),
+    url("../node_modules/@fontsource/geist-sans/files/geist-sans-latin-500-normal.woff")
+    format("woff");
+}
+
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src:
+    url("../node_modules/@fontsource/geist-sans/files/geist-sans-latin-600-normal.woff2")
+    format("woff2"),
+    url("../node_modules/@fontsource/geist-sans/files/geist-sans-latin-600-normal.woff")
+    format("woff");
+}
+
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src:
+    url("../node_modules/@fontsource/geist-sans/files/geist-sans-latin-700-normal.woff2")
+    format("woff2"),
+    url("../node_modules/@fontsource/geist-sans/files/geist-sans-latin-700-normal.woff")
+    format("woff");
+}
+
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src:
+    url("../node_modules/@fontsource/outfit/files/outfit-latin-700-normal.woff2") format("woff2"),
+    url("../node_modules/@fontsource/outfit/files/outfit-latin-700-normal.woff") format("woff");
+}
+
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src:
+    url("../node_modules/@fontsource/outfit/files/outfit-latin-800-normal.woff2") format("woff2"),
+    url("../node_modules/@fontsource/outfit/files/outfit-latin-800-normal.woff") format("woff");
+}
+
 @theme {
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Outfit", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Big Shoulders Display", sans-serif;
   --font-mono-brand: "Geist Mono", monospace;
   --color-canvas: #08080a;
-  --color-surface: #111114;
-  --color-line: #26262b;
+  --color-surface: #111115;
+  --color-line: #2c2c35;
   --color-brand: #ff3e1d;
+  --color-muted: #8e8e93;
+  --color-placeholder: #4e4e54;
+  --color-surface-raised: #191921;
   --color-brand-hover: #e63b19;
+  --color-warning: #f6c126;
+  --color-warning-surface: #362d0c;
 }
 
 body {

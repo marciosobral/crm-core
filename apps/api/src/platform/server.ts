@@ -13,7 +13,12 @@ import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { AuthLive } from "../auth/handlers.ts"
 import { LoginAttemptsLive } from "../auth/login-attempts.ts"
 import { AuthorizationLive } from "../auth/middleware.ts"
+import { AuthRepositoryLive } from "../auth/repository.ts"
 import { HealthLive } from "../health/handlers.ts"
+import { LeadsLive } from "../leads/handlers.ts"
+import { LeadsRepositoryLive } from "../leads/repository.ts"
+import { SellersLive } from "../sellers/handlers.ts"
+import { SellersRepositoryLive } from "../sellers/repository.ts"
 import { ServerConfig } from "./config.ts"
 import { DatabaseLive } from "./db.ts"
 
@@ -80,11 +85,14 @@ export const ApiRoutes = HttpApiBuilder.layer(CrmApi).pipe(
   Layer.provide([
     HealthLive,
     AuthLive.pipe(Layer.provide(LoginAttemptsLive)),
+    LeadsLive,
+    SellersLive,
     SecurityHeaders,
     BodySizeLimit,
     CrossOriginGuard,
   ]),
   Layer.provide(AuthorizationLive),
+  Layer.provide([AuthRepositoryLive, LeadsRepositoryLive, SellersRepositoryLive]),
 )
 
 export const ApiLive = ApiRoutes.pipe(Layer.provide(DatabaseLive))
