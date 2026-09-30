@@ -1,1 +1,40 @@
 @import "tailwindcss";
+
+/* font-display: block keeps the logo invisible until its font loads, so it never flashes a fallback face. */
+@font-face {
+  font-family: "Big Shoulders Display";
+  font-style: normal;
+  font-weight: 900;
+  font-display: block;
+  src:
+    url("../node_modules/@fontsource/big-shoulders-display/files/big-shoulders-display-latin-900-normal.woff2")
+    format("woff2"),
+    url("../node_modules/@fontsource/big-shoulders-display/files/big-shoulders-display-latin-900-normal.woff")
+    format("woff");
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src:
+    url("../node_modules/@fontsource/geist-mono/files/geist-mono-latin-400-normal.woff2")
+    format("woff2"),
+    url("../node_modules/@fontsource/geist-mono/files/geist-mono-latin-400-normal.woff")
+    format("woff");
+}
+
+@theme {
+  --font-display: "Big Shoulders Display", sans-serif;
+  --font-mono-brand: "Geist Mono", monospace;
+  --color-canvas: #08080a;
+  --color-surface: #111114;
+  --color-line: #26262b;
+  --color-brand: #ff3e1d;
+  --color-brand-hover: #e63b19;
+}
+
+body {
+  @apply bg-canvas text-zinc-100 antialiased;
+}

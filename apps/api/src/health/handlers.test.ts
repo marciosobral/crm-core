@@ -1,13 +1,14 @@
 import { CrmApi, HealthStatus } from "@crm/contract"
 import { NodeHttpServer } from "@effect/platform-node"
-import { PgliteClient } from "@effect/sql-pglite"
 import { expect, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 import { HttpApiTest } from "effect/unstable/httpapi"
+import { AuthorizationLive } from "../auth/middleware.ts"
+import { TestDatabase } from "../testing/database.ts"
 import { HealthLive } from "./handlers.ts"
 
 const TestLayer = Layer.mergeAll(
-  HealthLive.pipe(Layer.provide(PgliteClient.layer())),
+  Layer.mergeAll(HealthLive, AuthorizationLive).pipe(Layer.provide(TestDatabase)),
   NodeHttpServer.layerHttpServices,
 )
 

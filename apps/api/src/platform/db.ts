@@ -2,6 +2,7 @@ import { PgClient } from "@effect/sql-pg"
 import { Config, Effect, Layer, Option } from "effect"
 import type { SqlClient, SqlError } from "effect/unstable/sql"
 import { DatabaseConfig } from "./config.ts"
+import { MigrationsLive } from "./migrations/index.ts"
 
 export const SqlLive: Layer.Layer<SqlClient.SqlClient, SqlError.SqlError | Config.ConfigError> =
   Layer.unwrap(
@@ -19,3 +20,4 @@ export const SqlLive: Layer.Layer<SqlClient.SqlClient, SqlError.SqlError | Confi
       return PgClient.layer({ url })
     }),
   )
+export const DatabaseLive = MigrationsLive.pipe(Layer.provideMerge(SqlLive))

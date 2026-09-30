@@ -13,4 +13,11 @@ const clientPromise = Effect.runPromise(
 type Client = Awaited<typeof clientPromise>
 
 export const runApi = <A, E>(request: (client: Client) => Effect.Effect<A, E>): Promise<A> =>
-  clientPromise.then((client) => Effect.runPromise(request(client)))
+  clientPromise.then((client) =>
+    Effect.runPromise(
+      // The session cookie lives on the API origin, so every request must send credentials.
+      request(client).pipe(
+        Effect.provideService(FetchHttpClient.RequestInit, { credentials: "include" }),
+      ),
+    ),
+  )

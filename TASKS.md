@@ -13,15 +13,15 @@ Every step:
 
 A seller is the logged-in user; every deal will belong to one.
 
-- [ ] Migration mechanism with `PgMigrator`, running on API startup (Postgres and PGlite)
-- [ ] `users` table and seed with sellers, including a demo user that also exists in production
-- [ ] Password hashing
-- [ ] Contract: login, logout and current-user endpoints with typed errors
-- [ ] Session in an `HttpOnly`, `Secure`, `SameSite=Lax` cookie; CORS with credentials
-- [ ] Auth middleware protecting every non-public endpoint
-- [ ] Web: base layout and login screen (Figma), protected routes, logout
-- [ ] Tests: login success and failure, protected endpoint without a session
-- [ ] README: demo credentials so anyone can try the live app
+- [x] Migration mechanism with Effect `Migrator`, running on API startup (Postgres and PGlite)
+- [x] `users` table and seed with sellers, including a demo user that also exists in production
+- [x] Password hashing
+- [x] Contract: login, logout and current-user endpoints with typed errors
+- [x] Session in an `HttpOnly`, `Secure`, `SameSite=Lax` cookie; CORS with credentials
+- [x] Auth middleware protecting every non-public endpoint
+- [x] Web: base layout and login screen (Figma), protected routes, logout
+- [x] Tests: login success and failure, protected endpoint without a session
+- [x] README: local demo credentials; production credentials shared on request
 
 Open decisions: session storage (database table or signed token), roles (sellers only, or also a manager).
 
