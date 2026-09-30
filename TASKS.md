@@ -38,14 +38,14 @@ Open decisions: lead fields (name, email, phone, company, source), whether leads
 
 ## 3. Deals and kanban
 
-- [ ] `deals` table linked to a lead and a seller, with a status
-- [ ] Contract: create deal, list deals by status, change status
+- [x] `deals` table linked to a lead and a seller, with a status
+- [x] Contract: create deal, list deals by status, change status
 - [ ] Web: create deal screen (Figma), kanban board with one column per status
 - [ ] Move deals between columns (drag and drop, with a non-drag fallback)
 - [ ] Lead status derived from its deals (no deal: "Novo"), with a column and filter in the lead list
-- [ ] Tests: create, invalid lead, status transitions
+- [x] Tests: create, invalid lead, status transitions
 
-Open decisions: status list and allowed transitions, deal fields (title, value, expected close date), whether won/lost are board columns.
+Decisions: statuses Novo, Contato Feito, Proposta Enviada, Negociação (open, free movement) and Ganho, Perdido (closed, set in step 4); the Fechado column groups won and lost deals. Fields: title, linked lead, value (cents), responsible seller (always the lead's seller), initial status, expected close date, description.
 
 ## 4. Closing deals and details
 
@@ -92,3 +92,7 @@ Not planned; revisit only if needed.
 - Editing and deleting leads
 - Pagination of the lead list
 - A sellers management screen (sellers come from the seed)
+- Editing and deleting deals
+- Manual ordering of deals inside a board column (newest first)
+- Pagination or virtualization of the board columns
+- Demo deals in the seed
