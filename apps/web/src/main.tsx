@@ -1,15 +1,16 @@
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { createRouter, RouterProvider } from "@tanstack/react-router"
+import { HttpApiError } from "effect/unstable/httpapi"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import { ErrorScreen, PendingScreen } from "./components/layout/status-screen.tsx"
-import { authQueryKey, isUnauthorized } from "./lib/auth.ts"
+import { authQueryKey } from "./lib/auth.ts"
 import { routeTree } from "./routeTree.gen.ts"
 import "./styles.css"
 
 // Skips "auth" queries: their route guards already redirect, and handling both navigated twice.
 const redirectToLogin = (error: unknown) => {
-  if (!isUnauthorized(error)) return
+  if (!(error instanceof HttpApiError.Unauthorized)) return
   queryClient.clear()
   void router.navigate({ to: "/login", search: { redirect: router.state.location.href } })
 }

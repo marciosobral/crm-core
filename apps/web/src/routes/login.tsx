@@ -1,4 +1,4 @@
-import { TooManyLoginAttempts } from "@crm/contract"
+import { InvalidCredentials, TooManyLoginAttempts } from "@crm/contract"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router"
 import { TriangleAlert } from "lucide-react"
@@ -7,7 +7,7 @@ import { Button } from "../components/ui/button.tsx"
 import { Logo } from "../components/ui/logo.tsx"
 import { TextField } from "../components/ui/text-field.tsx"
 import { runApi } from "../lib/api-client.ts"
-import { isInvalidCredentials, meQueryOptions } from "../lib/auth.ts"
+import { meQueryOptions } from "../lib/auth.ts"
 import { safeRedirect } from "../lib/safe-redirect.ts"
 
 export const Route = createFileRoute("/login")({
@@ -123,7 +123,7 @@ function Login() {
         ) : (
           loginMutation.isError && (
             <p role="alert" className="text-sm text-red-400">
-              {isInvalidCredentials(loginMutation.error)
+              {loginMutation.error instanceof InvalidCredentials
                 ? "E-mail ou senha inválidos."
                 : "Não foi possível entrar. Tente novamente."}
             </p>
