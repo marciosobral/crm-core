@@ -2,7 +2,9 @@ import { TooManyLoginAttempts } from "@crm/contract"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router"
 import { type FormEvent, useState } from "react"
-import { Logo } from "../components/logo.tsx"
+import { Button } from "../components/ui/button.tsx"
+import { Logo } from "../components/ui/logo.tsx"
+import { TextField } from "../components/ui/text-field.tsx"
 import { runApi } from "../lib/api-client.ts"
 import { isInvalidCredentials, meQueryOptions } from "../lib/auth.ts"
 import { safeRedirect } from "../lib/safe-redirect.ts"
@@ -52,32 +54,22 @@ function Login() {
         </div>
 
         <div className="space-y-4">
-          <label className="block space-y-1.5">
-            <span className="text-xs font-medium text-zinc-400">
-              E-mail profissional <span className="text-brand">*</span>
-            </span>
-            <input
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="w-full rounded-lg border border-line bg-canvas px-3 py-2.5 text-sm outline-none focus:border-brand focus-visible:ring-2 focus-visible:ring-brand/40"
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-xs font-medium text-zinc-400">
-              Senha <span className="text-brand">*</span>
-            </span>
-            <input
-              type="password"
-              required
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="w-full rounded-lg border border-line bg-canvas px-3 py-2.5 text-sm outline-none focus:border-brand focus-visible:ring-2 focus-visible:ring-brand/40"
-            />
-          </label>
+          <TextField
+            label="E-mail profissional"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
+          <TextField
+            label="Senha"
+            type="password"
+            required
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
         </div>
 
         {loginMutation.isError && (
@@ -90,13 +82,9 @@ function Login() {
           </p>
         )}
 
-        <button
-          type="submit"
-          disabled={loginMutation.isPending}
-          className="w-full rounded-lg bg-brand py-2.5 text-sm font-semibold text-white hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-60"
-        >
+        <Button type="submit" disabled={loginMutation.isPending} className="w-full py-2.5">
           {loginMutation.isPending ? "Entrando..." : "Entrar no CRM"}
-        </button>
+        </Button>
       </form>
     </main>
   )

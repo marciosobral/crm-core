@@ -2,7 +2,7 @@ import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@ta
 import { createRouter, RouterProvider } from "@tanstack/react-router"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
-import { ErrorScreen, PendingScreen } from "./components/route-states.tsx"
+import { ErrorScreen, PendingScreen } from "./components/layout/status-screen.tsx"
 import { authQueryKey, isUnauthorized } from "./lib/auth.ts"
 import { routeTree } from "./routeTree.gen.ts"
 import "./styles.css"
