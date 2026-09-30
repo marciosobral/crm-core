@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 import { Logo } from "../ui/logo.tsx"
+import { SidebarNav } from "./sidebar-nav.tsx"
 
 type AppShellProps = { footer: ReactNode; children: ReactNode }
 
@@ -10,10 +11,12 @@ export function AppShell({ footer, children }: AppShellProps) {
         <div className="px-6 py-6">
           <Logo />
         </div>
-        <nav className="flex-1 px-3" aria-label="Navegação principal" />
+        <nav className="flex-1 px-3" aria-label="Navegação principal">
+          <SidebarNav />
+        </nav>
         {footer}
       </aside>
-      <main className="flex-1">{children}</main>
+      <main className="flex flex-1 flex-col">{children}</main>
     </div>
   )
 }

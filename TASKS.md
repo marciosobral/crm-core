@@ -31,7 +31,7 @@ Open decisions: session storage (database table or signed token), roles (sellers
 - [x] `leads` table and migration
 - [x] Contract: create and list leads, with validation errors; list sellers
 - [x] Sellers see only their own leads; supervisors see all and assign the responsible seller
-- [ ] Web: lead list (search, seller filter) and create lead screens (Figma)
+- [x] Web: lead list (search, seller filter) and create lead screens (Figma)
 - [x] Tests: create, list, validation failure, permissions
 
 Open decisions: lead fields (name, email, phone, company, source), whether leads are shared or owned by a seller.

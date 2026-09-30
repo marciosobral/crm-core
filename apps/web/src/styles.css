@@ -32,6 +32,9 @@
   --color-surface: #111114;
   --color-line: #26262b;
   --color-brand: #ff3e1d;
+  --color-muted: #8e8e93;
+  --color-placeholder: #4e4e54;
+  --color-surface-raised: #191921;
   --color-brand-hover: #e63b19;
   --color-warning: #f6c126;
   --color-warning-surface: #362d0c;
