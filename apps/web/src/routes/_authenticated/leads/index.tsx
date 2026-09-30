@@ -54,15 +54,12 @@ function SellerFilter({
     <FilterSelect
       label="Vendedor"
       value={sellerId ?? ""}
-      onChange={(event) => onChange(event.target.value)}
-    >
-      <option value="">Todos</option>
-      {sellers.map((seller) => (
-        <option key={seller.id} value={seller.id}>
-          {seller.name}
-        </option>
-      ))}
-    </FilterSelect>
+      options={[
+        { value: "", label: "Todos" },
+        ...sellers.map((seller) => ({ value: seller.id, label: seller.name })),
+      ]}
+      onChange={onChange}
+    />
   )
 }
 
