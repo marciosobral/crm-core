@@ -21,7 +21,7 @@ A seller is the logged-in user; every deal will belong to one.
 - [x] Auth middleware protecting every non-public endpoint
 - [x] Web: base layout and login screen (Figma), protected routes, logout
 - [x] Tests: login success and failure, protected endpoint without a session
-- [ ] README: demo credentials so anyone can try the live app
+- [x] README: local demo credentials; production credentials shared on request
 
 Open decisions: session storage (database table or signed token), roles (sellers only, or also a manager).
 
