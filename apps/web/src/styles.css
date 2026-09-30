@@ -1,1 +1,13 @@
 @import "tailwindcss";
+
+@theme {
+  --color-canvas: #08080a;
+  --color-surface: #111114;
+  --color-line: #26262b;
+  --color-brand: #ff4521;
+  --color-brand-hover: #e63b19;
+}
+
+body {
+  @apply bg-canvas text-zinc-100 antialiased;
+}

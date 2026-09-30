@@ -19,7 +19,7 @@ A seller is the logged-in user; every deal will belong to one.
 - [x] Contract: login, logout and current-user endpoints with typed errors
 - [x] Session in an `HttpOnly`, `Secure`, `SameSite=Lax` cookie; CORS with credentials
 - [x] Auth middleware protecting every non-public endpoint
-- [ ] Web: base layout and login screen (Figma), protected routes, logout
+- [x] Web: base layout and login screen (Figma), protected routes, logout
 - [x] Tests: login success and failure, protected endpoint without a session
 - [ ] README: demo credentials so anyone can try the live app
 
