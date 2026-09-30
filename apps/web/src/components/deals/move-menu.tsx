@@ -54,7 +54,7 @@ export function MoveMenu({
         const items = getItems()
         const index = items.findIndex((item) => item === document.activeElement)
         const step = event.key === "ArrowDown" ? 1 : -1
-        items.at((index + step) % items.length)?.focus()
+        items.at((index + step + items.length) % items.length)?.focus()
       }
     }
     document.addEventListener("keydown", handleKey)
