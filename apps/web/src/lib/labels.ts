@@ -41,3 +41,12 @@ export const dealStatusDotClasses: Record<DealStatus, string> = {
   WON: "bg-status-won",
   LOST: "bg-status-lost",
 }
+
+export const dealStatusBadgeClasses: Record<DealStatus, string> = {
+  NEW: "bg-status-new/15 text-status-new",
+  CONTACTED: "bg-status-open/15 text-status-open",
+  PROPOSAL_SENT: "bg-status-open/15 text-status-open",
+  NEGOTIATION: "bg-status-open/15 text-status-open",
+  WON: "bg-status-won/15 text-status-won",
+  LOST: "bg-status-lost/15 text-status-lost",
+}

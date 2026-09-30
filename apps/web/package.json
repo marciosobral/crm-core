@@ -10,6 +10,8 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
+    "@atlaskit/pragmatic-drag-and-drop": "4.0.0",
+    "@atlaskit/pragmatic-drag-and-drop-auto-scroll": "3.2.1",
     "@crm/contract": "workspace:*",
     "@fontsource/big-shoulders-display": "5.3.0",
     "@fontsource/geist-mono": "5.3.0",

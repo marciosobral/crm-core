@@ -1,0 +1,100 @@
+import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
+import { type Deal, OpenDealStatus } from "@crm/contract"
+import { Option, Schema } from "effect"
+import { useEffect, useRef, useState } from "react"
+import { cn } from "../../lib/cn.ts"
+import { formatDealValue } from "../../lib/currency.ts"
+import { dealStatusTextClasses } from "../../lib/labels.ts"
+import { MoveMenu } from "./move-menu.tsx"
+
+const initialsOf = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("")
+
+type DealCardProps = {
+  deal: Deal
+  canMove: boolean
+  shouldFocusMoveButton: boolean
+  onMoveButtonFocused: () => void
+  onMove: (status: OpenDealStatus) => void
+}
+
+export function DealCard({
+  deal,
+  canMove,
+  shouldFocusMoveButton,
+  onMoveButtonFocused,
+  onMove,
+}: DealCardProps) {
+  const ref = useRef<HTMLElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const openStatus = Schema.decodeUnknownOption(OpenDealStatus)(deal.status)
+  const isMovable = canMove && Option.isSome(openStatus)
+
+  useEffect(() => {
+    const element = ref.current
+    if (!element || !isMovable) return
+    return draggable({
+      element,
+      getInitialData: () => ({ dealId: deal.id, status: deal.status }),
+      onDragStart: () => setIsDragging(true),
+      onDrop: () => setIsDragging(false),
+    })
+  }, [deal.id, deal.status, isMovable])
+
+  return (
+    <article
+      ref={ref}
+      className={cn(
+        "relative space-y-2.5 rounded-lg border border-line bg-surface p-3.5",
+        isMovable && "cursor-grab active:cursor-grabbing",
+        isDragging && "opacity-40",
+      )}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="min-w-0 truncate text-sm font-bold text-white" title={deal.title}>
+          {deal.title}
+        </h3>
+        {deal.status === "WON" && (
+          <span className="shrink-0 text-xs font-semibold text-status-won">Ganho</span>
+        )}
+        {deal.status === "LOST" && (
+          <span className="shrink-0 text-xs font-semibold text-status-lost">Perdido</span>
+        )}
+      </div>
+      <p
+        className={cn(
+          "font-heading text-lg leading-none font-extrabold",
+          dealStatusTextClasses[deal.status],
+        )}
+      >
+        {formatDealValue(deal.valueCents)}
+      </p>
+      <div className="flex items-center justify-between gap-2">
+        <span className="min-w-0 truncate text-xs text-muted">{deal.lead.name}</span>
+        <span className="flex shrink-0 items-center gap-1">
+          {isMovable && Option.isSome(openStatus) && (
+            <MoveMenu
+              dealTitle={deal.title}
+              currentStatus={openStatus.value}
+              shouldFocusButton={shouldFocusMoveButton}
+              onButtonFocused={onMoveButtonFocused}
+              onMove={onMove}
+            />
+          )}
+          <span
+            title={deal.seller.name}
+            className="flex size-6 items-center justify-center rounded-full bg-brand text-[10px] font-bold text-white"
+          >
+            <span aria-hidden="true">{initialsOf(deal.seller.name)}</span>
+            <span className="sr-only">Vendedor: {deal.seller.name}</span>
+          </span>
+        </span>
+      </div>
+    </article>
+  )
+}

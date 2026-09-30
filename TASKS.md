@@ -40,8 +40,8 @@ Open decisions: lead fields (name, email, phone, company, source), whether leads
 
 - [x] `deals` table linked to a lead and a seller, with a status
 - [x] Contract: create deal, list deals by status, change status
-- [ ] Web: create deal screen (Figma), kanban board with one column per status
-- [ ] Move deals between columns (drag and drop, with a non-drag fallback)
+- [x] Web: create deal screen (Figma), kanban board with one column per status
+- [x] Move deals between columns (drag and drop, with a non-drag fallback)
 - [x] Lead status derived from its deals (no deal: "Novo"), with a column and filter in the lead list
 - [x] Tests: create, invalid lead, status transitions
 
