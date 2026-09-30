@@ -79,7 +79,7 @@ export function MoveMenu({
         ref={listRef}
         id={listId}
         popover="manual"
-        className="fixed inset-auto m-0 w-44 rounded-md border border-line bg-surface-raised px-0 py-1 text-white shadow-lg"
+        className="fixed inset-auto m-0 w-44 overflow-hidden rounded-md border border-line bg-surface-raised p-0 text-white shadow-lg"
       >
         {OpenDealStatus.literals
           .filter((status) => status !== currentStatus)

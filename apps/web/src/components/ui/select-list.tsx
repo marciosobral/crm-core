@@ -28,7 +28,7 @@ export function SelectList({ list, label, className }: SelectListProps) {
           id={list.listId}
           role="listbox"
           aria-label={label}
-          className="max-h-64 overflow-y-auto py-1"
+          className="max-h-64 overflow-y-auto"
         >
           {list.options.map((option, index) => (
             // biome-ignore lint/a11y/useKeyWithClickEvents: the keyboard drives options from the trigger through aria-activedescendant.
