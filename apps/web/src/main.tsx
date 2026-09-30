@@ -3,7 +3,7 @@ import { createRouter, RouterProvider } from "@tanstack/react-router"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import { ErrorScreen, PendingScreen } from "./components/route-states.tsx"
-import { isUnauthorized } from "./lib/auth.ts"
+import { authQueryKey, isUnauthorized } from "./lib/auth.ts"
 import { routeTree } from "./routeTree.gen.ts"
 import "./styles.css"
 
@@ -17,7 +17,7 @@ const redirectToLogin = (error: unknown) => {
 const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error, query) => {
-      if (query.queryKey[0] !== "auth") redirectToLogin(error)
+      if (query.queryKey[0] !== authQueryKey) redirectToLogin(error)
     },
   }),
   mutationCache: new MutationCache({ onError: redirectToLogin }),

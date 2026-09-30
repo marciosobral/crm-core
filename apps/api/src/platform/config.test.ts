@@ -46,3 +46,14 @@ it.effect("accepts the example seed passwords outside production", () =>
     expect(Exit.isSuccess(exit)).toBe(true)
   }),
 )
+
+it.effect("refuses an unknown NODE_ENV instead of skipping the production guard", () =>
+  Effect.gen(function* () {
+    const exit = yield* parseSeedConfig({
+      NODE_ENV: "Production",
+      SEED_DEMO_PASSWORD: exampleDemoPassword,
+      SEED_SELLER_PASSWORD: exampleSellerPassword,
+    })
+    expect(Exit.isFailure(exit)).toBe(true)
+  }),
+)

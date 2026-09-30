@@ -15,7 +15,9 @@ const SeedPassword = Schema.Redacted(Schema.String.check(Schema.isMinLength(12))
 const exampleSeedPasswords = ["demo-crm-1234", "seller-crm-1234"]
 
 export const SeedConfig = Config.all({
-  nodeEnv: Config.String("NODE_ENV").pipe(Config.withDefault("development")),
+  nodeEnv: Config.schema(Schema.Literals(["development", "test", "production"]), "NODE_ENV").pipe(
+    Config.withDefault("development"),
+  ),
   demoPassword: Config.schema(SeedPassword, "SEED_DEMO_PASSWORD"),
   sellerPassword: Config.schema(SeedPassword, "SEED_SELLER_PASSWORD"),
 }).pipe(

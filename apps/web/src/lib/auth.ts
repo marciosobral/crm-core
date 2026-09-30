@@ -1,15 +1,17 @@
+import { InvalidCredentials } from "@crm/contract"
 import { queryOptions } from "@tanstack/react-query"
-import { Predicate } from "effect"
+import { HttpApiError } from "effect/unstable/httpapi"
 import { runApi } from "./api-client.ts"
 
+export const authQueryKey = "auth"
+
 export const meQueryOptions = queryOptions({
-  queryKey: ["auth", "me"],
+  queryKey: [authQueryKey, "me"],
   queryFn: () => runApi((client) => client.auth.me()),
   retry: false,
   staleTime: Number.POSITIVE_INFINITY,
 })
 
-export const isUnauthorized = (error: unknown) => Predicate.isTagged(error, "Unauthorized")
+export const isUnauthorized = (error: unknown) => error instanceof HttpApiError.Unauthorized
 
-export const isInvalidCredentials = (error: unknown) =>
-  Predicate.isTagged(error, "InvalidCredentials")
+export const isInvalidCredentials = (error: unknown) => error instanceof InvalidCredentials

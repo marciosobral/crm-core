@@ -2,7 +2,13 @@ import { createServer } from "node:http"
 import { CrmApi } from "@crm/contract"
 import { NodeHttpServer } from "@effect/platform-node"
 import { ByteSize, Effect, Layer } from "effect"
-import { HttpEffect, HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
+import {
+  HttpEffect,
+  type HttpMethod,
+  HttpRouter,
+  HttpServerRequest,
+  HttpServerResponse,
+} from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { AuthLive } from "../auth/handlers.ts"
 import { LoginAttemptsLive } from "../auth/login-attempts.ts"
@@ -48,7 +54,12 @@ const SecurityHeaders = HttpRouter.middleware(
 
 // SameSite=Lax does not separate sibling subdomains, so unsafe requests carrying a foreign
 // Origin are refused. Requests without Origin come from non-browser clients and pass.
-const unsafeMethods = new Set(["POST", "PUT", "PATCH", "DELETE"])
+const unsafeMethods: ReadonlySet<HttpMethod.HttpMethod> = new Set([
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE",
+])
 
 const CrossOriginGuard = HttpRouter.middleware(
   Effect.gen(function* () {
