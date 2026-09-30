@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* font-display: block keeps the logo invisible until its font loads, so it never flashes a fallback face. */
+/* The logo faces (Big Shoulders Display, Geist Mono) use font-display: block so the logo never flashes a fallback face. */
 @font-face {
   font-family: "Big Shoulders Display";
   font-style: normal;

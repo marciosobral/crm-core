@@ -40,6 +40,7 @@ export function MoveMenu({
     onClose: () => setIsOpen(false),
   })
 
+  // Declared after useAnchoredPopover so the list is already shown when its first item takes focus.
   useEffect(() => {
     if (!isOpen) return
     const getItems = () => Array.from(listRef.current?.querySelectorAll("button") ?? [])

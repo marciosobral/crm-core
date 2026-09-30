@@ -32,7 +32,6 @@ export const Route = createFileRoute("/_authenticated/deals/")({
     ...(typeof search.search === "string" ? { search: search.search } : {}),
     ...(typeof search.sellerId === "string" ? { sellerId: search.sellerId } : {}),
   }),
-  // Search params are not loader deps: the list query lives in the component so filtering keeps the page mounted.
   // Drops a sellerId the UI cannot show (no permission or unknown seller) so the select always matches the applied filter.
   beforeLoad: async ({ context, search }) => {
     const { sellerId, ...rest } = search
@@ -40,6 +39,7 @@ export const Route = createFileRoute("/_authenticated/deals/")({
     if (!(await isVisibleSellerId(context.queryClient, sellerId, "deal.see_all")))
       throw redirect({ to: "/deals", search: rest, replace: true })
   },
+  // Search params are not loader deps: the list query lives in the component so filtering keeps the page mounted.
   loader: async ({ context }) => {
     const user = await context.queryClient.ensureQueryData(meQueryOptions)
     if (hasPermission(user, "deal.see_all"))
@@ -72,6 +72,7 @@ function DealBoard() {
   const queryClient = useQueryClient()
   const [moveError, setMoveError] = useState<string | undefined>(undefined)
   const [announcement, setAnnouncement] = useState("")
+  // Moving from the menu remounts the card in its new column (or back, on rollback), which drops focus; the moved card's button takes it back.
   const [focusRequest, setFocusRequest] = useState<MoveFocusRequest | undefined>(undefined)
   const listQueryKey = dealsQueryOptions(search).queryKey
 

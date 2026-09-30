@@ -8,7 +8,7 @@ updates:
     groups:
       npm:
         patterns: ["*"]
-    # The project targets Node 24 LTS (.nvmrc)
+    # Stay on Node 24 LTS (.nvmrc): @types/node majors track newer Node releases.
     ignore:
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]

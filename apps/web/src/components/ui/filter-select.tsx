@@ -32,8 +32,7 @@ export function FilterSelect({
   const triggerProps = { ...select.triggerProps, ref: select.triggerRef, id: select.id }
 
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: the click only widens the input's hit area; keyboard users use the input.
-    // biome-ignore lint/a11y/noStaticElementInteractions: same reason.
+    // biome-ignore lint/a11y/useKeyWithClickEvents lint/a11y/noStaticElementInteractions: the click only widens the input's hit area; keyboard users use the input.
     <div
       ref={select.containerRef}
       onClick={searchable ? select.openFromBox : undefined}

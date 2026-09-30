@@ -26,7 +26,6 @@ export const Route = createFileRoute("/_authenticated/leads/")({
     ...(typeof search.sellerId === "string" ? { sellerId: search.sellerId } : {}),
     ...(Schema.is(DealStatus)(search.status) ? { status: search.status } : {}),
   }),
-  // Search params are not loader deps: the list query lives in the component so filtering keeps the page mounted.
   // Drops a sellerId the UI cannot show (no permission or unknown seller) so the select always matches the applied filter.
   beforeLoad: async ({ context, search }) => {
     const { sellerId, ...rest } = search
@@ -34,6 +33,7 @@ export const Route = createFileRoute("/_authenticated/leads/")({
     if (!(await isVisibleSellerId(context.queryClient, sellerId, "lead.see_all")))
       throw redirect({ to: "/leads", search: rest, replace: true })
   },
+  // Search params are not loader deps: the list query lives in the component so filtering keeps the page mounted.
   loader: async ({ context }) => {
     const user = await context.queryClient.ensureQueryData(meQueryOptions)
     if (hasPermission(user, "lead.see_all"))

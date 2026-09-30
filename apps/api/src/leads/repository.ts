@@ -67,7 +67,7 @@ export const LeadsRepositoryLive = Layer.effect(
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
 
-    // A lead has no stored status: it shows its most advanced open deal, else won/lost, else NEW.
+    // A lead has no stored status: it shows its most advanced open deal, else WON if any deal was won, else LOST, and NEW when it has no deals.
     const selectLeads = (condition: ReturnType<typeof sql.and>) => sql`
       SELECT l.id, l.name, l.company, l.email, l.phone, l.job_title AS "jobTitle", l.source, l.notes,
              l.created_at AS "createdAt", u.id AS "sellerId", u.name AS "sellerName", ds.status

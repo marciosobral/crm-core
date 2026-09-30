@@ -27,7 +27,7 @@ const queryClient = new QueryClient({
         !(error instanceof HttpApiError.Unauthorized) && failureCount < 3,
     },
   },
-  // Skips "auth" queries and mutations: their route guards and handlers already navigate, and handling both navigated twice.
+  // Skips "auth" queries and mutations: their route guards and handlers already navigate, so handling them here would navigate twice.
   queryCache: new QueryCache({
     onError: (error, query) => {
       if (query.queryKey[0] !== authQueryKey) redirectToLogin(error)
