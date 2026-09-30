@@ -13,9 +13,9 @@ Every step:
 
 A seller is the logged-in user; every deal will belong to one.
 
-- [ ] Migration mechanism with `PgMigrator`, running on API startup (Postgres and PGlite)
-- [ ] `users` table and seed with sellers, including a demo user that also exists in production
-- [ ] Password hashing
+- [x] Migration mechanism with Effect `Migrator`, running on API startup (Postgres and PGlite)
+- [x] `users` table and seed with sellers, including a demo user that also exists in production
+- [x] Password hashing
 - [ ] Contract: login, logout and current-user endpoints with typed errors
 - [ ] Session in an `HttpOnly`, `Secure`, `SameSite=Lax` cookie; CORS with credentials
 - [ ] Auth middleware protecting every non-public endpoint

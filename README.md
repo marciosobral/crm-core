@@ -71,6 +71,8 @@ pnpm dev
 | api | `PGLITE_DATA_DIR` | directory where PGlite persists data (in memory if unset) |
 | api | `PORT` | HTTP port (default `3001`) |
 | api | `CORS_ORIGIN` | web origin allowed by CORS (default `http://localhost:5173`) |
+| api | `SEED_DEMO_PASSWORD` | password of the seeded demo seller (min. 12 characters, applied once by the first migration) |
+| api | `SEED_SELLER_PASSWORD` | password of the other seeded sellers (same rules) |
 | web | `VITE_API_URL` | API base URL |
 
 ## Deploy

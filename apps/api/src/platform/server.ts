@@ -6,11 +6,11 @@ import { HttpRouter } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { HealthLive } from "../health/handlers.ts"
 import { ServerConfig } from "./config.ts"
-import { SqlLive } from "./db.ts"
+import { DatabaseLive } from "./db.ts"
 
 export const ApiLive = HttpApiBuilder.layer(CrmApi).pipe(
   Layer.provide(HealthLive),
-  Layer.provide(SqlLive),
+  Layer.provide(DatabaseLive),
 )
 
 export const ServerLive = Layer.unwrap(
