@@ -1,7 +1,8 @@
 import { TooManyLoginAttempts } from "@crm/contract"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router"
-import { type FormEvent, useState } from "react"
+import { TriangleAlert } from "lucide-react"
+import { type FormEvent, useEffect, useState } from "react"
 import { Button } from "../components/ui/button.tsx"
 import { Logo } from "../components/ui/logo.tsx"
 import { TextField } from "../components/ui/text-field.tsx"
@@ -22,12 +23,21 @@ export const Route = createFileRoute("/login")({
   component: Login,
 })
 
+const formatCountdown = (millis: number) => {
+  const totalSeconds = Math.max(0, Math.ceil(millis / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}:${String(seconds).padStart(2, "0")}`
+}
+
 function Login() {
   const { redirect: redirectTo } = Route.useSearch()
   const router = useRouter()
   const queryClient = useQueryClient()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [retryAt, setRetryAt] = useState<number | null>(null)
+  const [now, setNow] = useState(() => Date.now())
 
   const loginMutation = useMutation({
     mutationFn: () => runApi((client) => client.auth.login({ payload: { email, password } })),
@@ -35,7 +45,31 @@ function Login() {
       queryClient.setQueryData(meQueryOptions.queryKey, user)
       router.history.push(safeRedirect(redirectTo))
     },
+    onError: (error) => {
+      if (error instanceof TooManyLoginAttempts) {
+        const current = Date.now()
+        setNow(current)
+        setRetryAt(current + error.retryAfterSeconds * 1000)
+      }
+    },
   })
+  const { reset: resetLogin } = loginMutation
+
+  useEffect(() => {
+    if (retryAt === null) return
+    const interval = setInterval(() => {
+      const current = Date.now()
+      if (current < retryAt) {
+        setNow(current)
+        return
+      }
+      setRetryAt(null)
+      resetLogin()
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [retryAt, resetLogin])
+
+  const isRateLimited = retryAt !== null
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -60,7 +94,13 @@ function Login() {
             required
             autoComplete="email"
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            onChange={(event) => {
+              setEmail(event.target.value)
+              if (isRateLimited) {
+                setRetryAt(null)
+                resetLogin()
+              }
+            }}
           />
           <TextField
             label="Senha"
@@ -72,18 +112,34 @@ function Login() {
           />
         </div>
 
-        {loginMutation.isError && (
-          <p role="alert" className="text-sm text-red-400">
-            {loginMutation.error instanceof TooManyLoginAttempts
-              ? `Muitas tentativas. Tente novamente em ${Math.ceil(loginMutation.error.retryAfterSeconds / 60)} minuto(s).`
-              : isInvalidCredentials(loginMutation.error)
+        {isRateLimited ? (
+          <div
+            role="alert"
+            className="flex gap-2 rounded-lg border border-warning bg-warning-surface px-3 py-2.5 text-sm text-warning"
+          >
+            <TriangleAlert className="size-5 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+            <p>Muitas tentativas de login com este e-mail. Aguarde para tentar novamente.</p>
+          </div>
+        ) : (
+          loginMutation.isError && (
+            <p role="alert" className="text-sm text-red-400">
+              {isInvalidCredentials(loginMutation.error)
                 ? "E-mail ou senha inválidos."
                 : "Não foi possível entrar. Tente novamente."}
-          </p>
+            </p>
+          )
         )}
 
-        <Button type="submit" disabled={loginMutation.isPending} className="w-full py-2.5">
-          {loginMutation.isPending ? "Entrando..." : "Entrar no CRM"}
+        <Button
+          type="submit"
+          disabled={loginMutation.isPending || isRateLimited}
+          className="w-full py-2.5"
+        >
+          {loginMutation.isPending
+            ? "Entrando..."
+            : isRateLimited
+              ? `Tente novamente em ${formatCountdown(retryAt - now)}`
+              : "Entrar no CRM"}
         </Button>
       </form>
     </main>

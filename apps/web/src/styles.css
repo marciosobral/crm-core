@@ -33,6 +33,8 @@
   --color-line: #26262b;
   --color-brand: #ff3e1d;
   --color-brand-hover: #e63b19;
+  --color-warning: #f6c126;
+  --color-warning-surface: #362d0c;
 }
 
 body {

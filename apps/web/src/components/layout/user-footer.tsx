@@ -1,3 +1,4 @@
+import { LogOut } from "lucide-react"
 import { Button } from "../ui/button.tsx"
 
 type UserFooterProps = {
@@ -30,16 +31,7 @@ export function UserFooter({ user, onLogout, isLoggingOut }: UserFooterProps) {
         onClick={onLogout}
         disabled={isLoggingOut}
       >
-        <svg
-          viewBox="0 0 24 24"
-          className="size-4"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          aria-hidden="true"
-        >
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
-        </svg>
+        <LogOut className="size-4" aria-hidden="true" />
       </Button>
     </div>
   )
