@@ -1,4 +1,4 @@
-import type { ComponentPropsWithoutRef } from "react"
+import type { ComponentProps } from "react"
 import { cn } from "../../lib/cn.ts"
 
 type ButtonVariant = "primary" | "secondary" | "icon"
@@ -11,7 +11,7 @@ export const variantClasses: Record<ButtonVariant, string> = {
   icon: "cursor-pointer rounded-md p-1.5 text-muted hover:bg-line hover:text-zinc-100 focus-visible:outline-2 focus-visible:outline-brand disabled:cursor-not-allowed",
 }
 
-type ButtonProps = ComponentPropsWithoutRef<"button"> & { variant?: ButtonVariant }
+type ButtonProps = ComponentProps<"button"> & { variant?: ButtonVariant }
 
 export function Button({ variant = "primary", type = "button", className, ...props }: ButtonProps) {
   return <button type={type} className={cn(variantClasses[variant], className)} {...props} />

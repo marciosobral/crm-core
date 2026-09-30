@@ -4,6 +4,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { Result, Schema, SchemaIssue } from "effect"
 import { type FormEvent, useRef, useState } from "react"
 import { flushSync } from "react-dom"
+import { TopBar } from "../../../components/layout/top-bar.tsx"
 import { Button } from "../../../components/ui/button.tsx"
 import { PhoneField } from "../../../components/ui/phone-field.tsx"
 import { Select } from "../../../components/ui/select.tsx"
@@ -174,12 +175,12 @@ function NewLead() {
 
   return (
     <>
-      <header className="border-b border-line px-8 py-5">
-        <h1 className="text-xl font-semibold">Criar Novo Lead</h1>
-      </header>
-      <form ref={formRef} onSubmit={onSubmit} noValidate className="p-8">
-        <div className="w-full max-w-[800px] space-y-6 rounded-xl border border-line bg-surface p-8">
-          <h2 className="text-lg font-bold leading-none">Informações Gerais do Contato</h2>
+      <TopBar title="Criar Novo Lead" />
+      <form ref={formRef} onSubmit={onSubmit} noValidate className="p-4 md:p-8">
+        <div className="w-full max-w-[800px] space-y-6 rounded-xl border border-line bg-surface p-5 md:p-8">
+          <h2 className="font-heading text-lg font-bold leading-none">
+            Informações Gerais do Contato
+          </h2>
           <div className="grid grid-cols-1 gap-x-5 gap-y-6 md:grid-cols-2">
             <TextField
               label="Nome Completo"
@@ -271,15 +272,16 @@ function NewLead() {
             </p>
           )}
 
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button
               variant="secondary"
+              className="w-full sm:w-auto"
               disabled={createMutation.isPending}
               onClick={() => void navigate({ to: "/leads" })}
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={createMutation.isPending}>
+            <Button type="submit" className="w-full sm:w-auto" disabled={createMutation.isPending}>
               {createMutation.isPending ? "Salvando..." : "Salvar Lead"}
             </Button>
           </div>

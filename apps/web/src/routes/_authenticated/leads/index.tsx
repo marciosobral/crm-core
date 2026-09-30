@@ -4,6 +4,7 @@ import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { Plus, Search } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { FiltersBar } from "../../../components/layout/filters-bar.tsx"
+import { TopBar } from "../../../components/layout/top-bar.tsx"
 import { variantClasses } from "../../../components/ui/button.tsx"
 import { FilterSelect } from "../../../components/ui/filter-select.tsx"
 import { Table, TableCell, TableHead, TableRow } from "../../../components/ui/table.tsx"
@@ -65,6 +66,33 @@ function SellerFilter({
   )
 }
 
+function LeadSearch({
+  className,
+  value,
+  onChange,
+}: {
+  className: string
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <div className={cn("relative", className)}>
+      <Search
+        className="pointer-events-none absolute top-1/2 left-4 size-3.5 -translate-y-1/2 text-muted"
+        aria-hidden="true"
+      />
+      <input
+        type="search"
+        aria-label="Buscar leads"
+        placeholder="Buscar..."
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-[34px] w-full rounded-md border border-line bg-canvas pr-4 pl-[38px] text-sm leading-none outline-none placeholder:text-placeholder focus:border-brand focus-visible:ring-2 focus-visible:ring-brand/40"
+      />
+    </div>
+  )
+}
+
 function LeadList() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
@@ -103,32 +131,29 @@ function LeadList() {
 
   return (
     <>
-      <header className="flex items-center gap-4 border-b border-line px-8 py-5">
-        <h1 className="flex-1 text-xl font-semibold">Lista de Leads</h1>
-        <div className="relative w-72">
-          <Search
-            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted"
-            aria-hidden="true"
-          />
-          <input
-            type="search"
-            aria-label="Buscar leads"
-            placeholder="Buscar..."
-            value={searchText}
-            onChange={(event) => onSearchTextChange(event.target.value)}
-            className="w-full rounded-lg border border-line bg-canvas py-2.5 pr-3 pl-9 text-sm outline-none focus:border-brand focus-visible:ring-2 focus-visible:ring-brand/40"
-          />
-        </div>
+      <TopBar title="Lista de Leads">
+        <LeadSearch
+          className="hidden md:block md:w-64 lg:w-80"
+          value={searchText}
+          onChange={onSearchTextChange}
+        />
         {canCreate && (
-          <Link to="/leads/new" className={cn(variantClasses.primary, "flex items-center gap-1.5")}>
-            <Plus className="size-4" aria-hidden="true" />
-            Novo Lead
+          <Link
+            to="/leads/new"
+            className={cn(
+              variantClasses.primary,
+              "flex size-[38px] items-center justify-center gap-2 p-0 sm:size-auto sm:px-[18px] sm:py-2.5",
+            )}
+          >
+            <Plus className="size-3.5" aria-hidden="true" />
+            <span className="sr-only sm:not-sr-only">Novo Lead</span>
           </Link>
         )}
-      </header>
+      </TopBar>
 
       <FiltersBar
         summary={leads && !leadsQuery.isPlaceholderData ? leadCountLabel(leads.length) : ""}
+        search={<LeadSearch className="w-full" value={searchText} onChange={onSearchTextChange} />}
       >
         {canSeeAll && (
           <SellerFilter
@@ -143,7 +168,7 @@ function LeadList() {
         )}
       </FiltersBar>
 
-      <section className="p-8">
+      <section className="p-4 md:p-8">
         {leadsQuery.isError ? (
           <div className="rounded-xl border border-line bg-surface px-4 py-10 text-center">
             <p role="alert" className="text-sm text-red-400">

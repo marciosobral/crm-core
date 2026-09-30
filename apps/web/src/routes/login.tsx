@@ -80,11 +80,11 @@ function Login() {
     <main className="flex min-h-screen items-center justify-center px-4">
       <form
         onSubmit={onSubmit}
-        className="w-full max-w-sm space-y-6 rounded-2xl border border-line bg-surface p-8 shadow-2xl"
+        className="w-full max-w-sm space-y-6 rounded-2xl border border-line bg-surface p-6 shadow-2xl sm:p-8"
       >
         <div className="space-y-3 text-center">
           <Logo size="lg" />
-          <p className="text-sm text-zinc-400">Entre na sua conta corporativa para continuar</p>
+          <p className="text-sm text-muted">Entre na sua conta corporativa para continuar</p>
         </div>
 
         <div className="space-y-4">

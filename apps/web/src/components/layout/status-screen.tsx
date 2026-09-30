@@ -11,7 +11,7 @@ function StatusScreen({ message, action }: StatusScreenProps) {
       {action}
     </div>
   ) : (
-    <div className="flex flex-1 items-center justify-center text-sm text-zinc-400">{message}</div>
+    <div className="flex flex-1 items-center justify-center text-sm text-muted">{message}</div>
   )
 }
 

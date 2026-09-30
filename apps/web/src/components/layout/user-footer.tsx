@@ -18,13 +18,13 @@ const initialsOf = (name: string) =>
 
 export function UserFooter({ user, onLogout, isLoggingOut }: UserFooterProps) {
   return (
-    <div className="flex items-center gap-3 border-t border-line px-4 py-4">
+    <div className="flex items-center gap-3 border-t border-line pt-5">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-semibold text-white">
         {initialsOf(user.name)}
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{user.name}</p>
-        <p className="truncate text-xs text-zinc-400">{roleLabels[user.role]}</p>
+        <p className="truncate text-xs text-muted">{roleLabels[user.role]}</p>
       </div>
       <Button
         variant="icon"
