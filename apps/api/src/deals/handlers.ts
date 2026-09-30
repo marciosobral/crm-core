@@ -2,6 +2,7 @@ import {
   CrmApi,
   CurrentUser,
   DealClosed,
+  DealDetails,
   hasPermission,
   InvalidDealLead,
   InvalidDealSeller,
@@ -9,6 +10,7 @@ import {
 import { Effect, Option } from "effect"
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
 import { requirePermission } from "../auth/permissions.ts"
+import { LeadsRepository } from "../leads/repository.ts"
 import { nullIfBlank } from "../platform/text.ts"
 import { failUnavailable } from "../platform/unavailable.ts"
 import { SellersRepository } from "../sellers/repository.ts"
@@ -18,6 +20,7 @@ export const DealsLive = HttpApiBuilder.group(CrmApi, "deals", (handlers) =>
   Effect.gen(function* () {
     const deals = yield* DealsRepository
     const sellers = yield* SellersRepository
+    const leads = yield* LeadsRepository
 
     return handlers
       .handle("list", ({ query }) =>
@@ -30,6 +33,17 @@ export const DealsLive = HttpApiBuilder.group(CrmApi, "deals", (handlers) =>
             ...(sellerId === undefined ? {} : { sellerId }),
             ...(query.search === undefined ? {} : { search: query.search }),
           })
+        }).pipe(Effect.catchTag("SqlError", failUnavailable)),
+      )
+      .handle("get", ({ params }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const scope = hasPermission(user, "deal.see_all") ? {} : { sellerId: user.id }
+          const deal = yield* deals.findById(params.id, scope)
+          if (Option.isNone(deal)) return yield* new HttpApiError.NotFound()
+          const lead = yield* leads.findById(deal.value.lead.id)
+          if (Option.isNone(lead)) return yield* Effect.die(new Error("Deal lead not found"))
+          return new DealDetails({ deal: deal.value, lead: lead.value })
         }).pipe(Effect.catchTag("SqlError", failUnavailable)),
       )
       .handle("create", ({ payload }) =>
@@ -73,6 +87,25 @@ export const DealsLive = HttpApiBuilder.group(CrmApi, "deals", (handlers) =>
             Effect.annotateLogs({ dealId: params.id, status: payload.status }),
           )
           return moved.value
+        }).pipe(Effect.catchTag("SqlError", failUnavailable)),
+      )
+      .handle("close", ({ params, payload }) =>
+        Effect.gen(function* () {
+          const user = yield* requirePermission("deal.close")
+          const scope = hasPermission(user, "deal.see_all") ? {} : { sellerId: user.id }
+          if (Option.isNone(yield* deals.findById(params.id, scope)))
+            return yield* new HttpApiError.NotFound()
+          const closed = yield* deals.close(
+            params.id,
+            payload.result === "WON"
+              ? { status: "WON" }
+              : { status: "LOST", lostReason: payload.reason, lostNote: nullIfBlank(payload.note) },
+          )
+          if (Option.isNone(closed)) return yield* new DealClosed()
+          yield* Effect.logInfo("Deal closed").pipe(
+            Effect.annotateLogs({ dealId: params.id, result: payload.result }),
+          )
+          return closed.value
         }).pipe(Effect.catchTag("SqlError", failUnavailable)),
       )
   }),

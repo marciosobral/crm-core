@@ -1,4 +1,4 @@
-import { Deal, DealLead, DealStatus, OpenDealStatus, Seller } from "@crm/contract"
+import { Deal, DealLead, DealStatus, LostReason, OpenDealStatus, Seller } from "@crm/contract"
 import { Context, Effect, Layer, Option, Schema } from "effect"
 import { SqlClient, type SqlError, SqlSchema } from "effect/unstable/sql"
 import { dieOnSchemaError } from "../platform/schema-defects.ts"
@@ -12,6 +12,9 @@ const DealRow = Schema.Struct({
   expectedCloseDate: Schema.NullOr(Schema.String),
   description: Schema.NullOr(Schema.String),
   createdAt: Schema.DateTimeUtcFromDate,
+  lostReason: Schema.NullOr(LostReason),
+  lostNote: Schema.NullOr(Schema.String),
+  closedAt: Schema.NullOr(Schema.DateTimeUtcFromDate),
   leadId: Schema.String,
   leadName: Schema.String,
   leadCompany: Schema.String,
@@ -28,6 +31,9 @@ const toDeal = (row: typeof DealRow.Type) =>
     expectedCloseDate: row.expectedCloseDate,
     description: row.description,
     createdAt: row.createdAt,
+    lostReason: row.lostReason,
+    lostNote: row.lostNote,
+    closedAt: row.closedAt,
     lead: new DealLead({ id: row.leadId, name: row.leadName, company: row.leadCompany }),
     seller: new Seller({ id: row.sellerId, name: row.sellerName }),
   })
@@ -48,6 +54,15 @@ const NewDeal = Schema.Struct({
   createdBy: Schema.String,
 })
 
+const DealClosing = Schema.Union([
+  Schema.Struct({ status: Schema.Literal("WON") }),
+  Schema.Struct({
+    status: Schema.Literal("LOST"),
+    lostReason: LostReason,
+    lostNote: Schema.NullOr(Schema.String),
+  }),
+])
+
 export class DealsRepository extends Context.Service<
   DealsRepository,
   {
@@ -66,6 +81,10 @@ export class DealsRepository extends Context.Service<
       id: string,
       status: OpenDealStatus,
     ) => Effect.Effect<Option.Option<Deal>, SqlError.SqlError>
+    readonly close: (
+      id: string,
+      closing: typeof DealClosing.Type,
+    ) => Effect.Effect<Option.Option<Deal>, SqlError.SqlError>
   }
 >()("crm/DealsRepository") {}
 
@@ -80,6 +99,7 @@ export const DealsRepositoryLive = Layer.effect(
       SELECT d.id, d.title, d.value_cents::text AS "valueCents", d.status,
              to_char(d.expected_close_date, 'YYYY-MM-DD') AS "expectedCloseDate",
              d.description, d.created_at AS "createdAt",
+             d.lost_reason AS "lostReason", d.lost_note AS "lostNote", d.closed_at AS "closedAt",
              l.id AS "leadId", l.name AS "leadName", l.company AS "leadCompany",
              u.id AS "sellerId", u.name AS "sellerName"
       FROM deals d
@@ -146,6 +166,20 @@ export const DealsRepositoryLive = Layer.effect(
       `,
     })
 
+    const updateClosing = SqlSchema.findOneOption({
+      Request: Schema.Struct({ id: Schema.String, closing: DealClosing }),
+      Result: Schema.Struct({ id: Schema.String }),
+      execute: ({ id, closing }) => sql`
+        UPDATE deals
+        SET status = ${closing.status},
+            lost_reason = ${closing.status === "LOST" ? closing.lostReason : null},
+            lost_note = ${closing.status === "LOST" ? closing.lostNote : null},
+            closed_at = now(), updated_at = now()
+        WHERE id = ${id} AND status NOT IN ('WON', 'LOST')
+        RETURNING id
+      `,
+    })
+
     const readBack = (id: string) =>
       Effect.flatMap(findById({ id }), (row) =>
         Option.isNone(row)
@@ -177,6 +211,12 @@ export const DealsRepositoryLive = Layer.effect(
       moveOpen: (id, status) =>
         Effect.gen(function* () {
           const updated = yield* updateOpenStatus({ id, status })
+          if (Option.isNone(updated)) return Option.none()
+          return Option.some(yield* readBack(id))
+        }).pipe(dieOnSchemaError),
+      close: (id, closing) =>
+        Effect.gen(function* () {
+          const updated = yield* updateClosing({ id, closing })
           if (Option.isNone(updated)) return Option.none()
           return Option.some(yield* readBack(id))
         }).pipe(dieOnSchemaError),

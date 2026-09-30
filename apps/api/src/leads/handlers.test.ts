@@ -229,9 +229,9 @@ it.effect("derives the lead status from its deals", () =>
     yield* createDealFor(send, cookie, won, "NEW")
     yield* createDealFor(send, cookie, won, "NEW")
     yield* createDealFor(send, cookie, lost, "NEW")
-    yield* sql`UPDATE deals SET status = 'LOST' WHERE lead_id IN (${won}, ${lost})`
-    yield* sql`UPDATE deals SET status = 'WON' WHERE id = ${openLeadWonDeal}`
-    yield* sql`UPDATE deals SET status = 'WON' WHERE id = (SELECT id FROM deals WHERE lead_id = ${won} LIMIT 1)`
+    yield* sql`UPDATE deals SET status = 'LOST', lost_reason = 'PRICE', closed_at = now() WHERE lead_id IN (${won}, ${lost})`
+    yield* sql`UPDATE deals SET status = 'WON', closed_at = now() WHERE id = ${openLeadWonDeal}`
+    yield* sql`UPDATE deals SET status = 'WON', lost_reason = NULL, closed_at = now() WHERE id = (SELECT id FROM deals WHERE lead_id = ${won} LIMIT 1)`
 
     const statusByName = Object.fromEntries(
       decodeStatuses(yield* jsonOf(yield* listLeads(send, cookie))).map((lead) => [

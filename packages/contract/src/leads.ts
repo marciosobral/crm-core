@@ -1,7 +1,7 @@
 import { Schema } from "effect"
 import { HttpApiEndpoint, HttpApiError, HttpApiGroup, HttpApiSchema } from "effect/unstable/httpapi"
 import { Authorization } from "./auth.ts"
-import { DealStatus } from "./deals.ts"
+import { DealStatus } from "./deal-status.ts"
 import { Seller } from "./sellers.ts"
 
 export const LeadSource = Schema.Literals([

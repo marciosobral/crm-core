@@ -222,13 +222,17 @@ it.effect("returns the role and permissions of the current user", () =>
             "deal.see_all",
             "deal.assign_any",
             "deal.move",
+            "deal.close",
           ],
         },
       },
       {
         email: "ana.souza@crm-core.dev",
         password: "seller-test-password",
-        expected: { role: "SELLER", permissions: ["lead.create", "deal.create", "deal.move"] },
+        expected: {
+          role: "SELLER",
+          permissions: ["lead.create", "deal.create", "deal.move", "deal.close"],
+        },
       },
     ]
     for (const { email, password, expected } of accounts) {

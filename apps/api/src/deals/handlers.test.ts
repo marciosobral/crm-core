@@ -208,9 +208,143 @@ it.effect("hides other sellers' deals and refuses to move closed deals", () =>
     expect((yield* moveDeal(send, bruno, dealId, "CONTACTED")).status).toBe(404)
     expect((yield* moveDeal(send, demo, dealId, "CONTACTED")).status).toBe(200)
     expect((yield* moveDeal(send, undefined, dealId, "CONTACTED")).status).toBe(401)
-    yield* sql`UPDATE deals SET status = 'WON' WHERE id = ${dealId}`
+    yield* sql`UPDATE deals SET status = 'WON', closed_at = now() WHERE id = ${dealId}`
     const closed = yield* moveDeal(send, ana, dealId, "NEGOTIATION")
     expect(closed.status).toBe(409)
     expect(yield* jsonOf(closed)).toMatchObject({ _tag: "DealClosed" })
+  }).pipe(Effect.scoped),
+)
+
+const closeDeal = (send: Send, cookie: string | undefined, id: string, body: unknown) =>
+  send(
+    new Request(`http://localhost/deals/${id}/close`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) },
+      body: JSON.stringify(body),
+    }),
+  )
+
+const getDeal = (send: Send, cookie: string, id: string) =>
+  send(new Request(`http://localhost/deals/${id}`, { headers: { cookie } }))
+
+it.effect("closes a deal as won", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    const cookie = yield* loginAs(send, anaEmail, sellerPassword)
+    const leadId = yield* createLead(send, cookie)
+    const dealId = decodeId(yield* jsonOf(yield* createDeal(send, cookie, { leadId }))).id
+    const response = yield* closeDeal(send, cookie, dealId, { result: "WON" })
+    expect(response.status).toBe(200)
+    const body = yield* jsonOf(response)
+    expect(body).toMatchObject({ status: "WON", lostReason: null, lostNote: null })
+    expect(
+      Schema.decodeUnknownSync(Schema.Struct({ closedAt: Schema.String }))(body).closedAt,
+    ).toBeTruthy()
+  }).pipe(Effect.scoped),
+)
+
+it.effect("closes a deal as lost with a reason and requires a note for OTHER", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    const cookie = yield* loginAs(send, anaEmail, sellerPassword)
+    const leadId = yield* createLead(send, cookie)
+    const idOf = (response: Response) => Effect.map(jsonOf(response), (body) => decodeId(body).id)
+    const first = yield* idOf(yield* createDeal(send, cookie, { leadId }))
+    const second = yield* idOf(yield* createDeal(send, cookie, { leadId }))
+    expect((yield* closeDeal(send, cookie, first, { result: "LOST" })).status).toBe(400)
+    expect(
+      (yield* closeDeal(send, cookie, first, { result: "LOST", reason: "OTHER" })).status,
+    ).toBe(400)
+    expect(
+      (yield* closeDeal(send, cookie, first, { result: "LOST", reason: "OTHER", note: "  " }))
+        .status,
+    ).toBe(400)
+    const lost = yield* closeDeal(send, cookie, first, { result: "LOST", reason: "PRICE" })
+    expect(yield* jsonOf(lost)).toMatchObject({
+      status: "LOST",
+      lostReason: "PRICE",
+      lostNote: null,
+    })
+    const other = yield* closeDeal(send, cookie, second, {
+      result: "LOST",
+      reason: "OTHER",
+      note: "Fechou com outra rede",
+    })
+    expect(yield* jsonOf(other)).toMatchObject({
+      lostReason: "OTHER",
+      lostNote: "Fechou com outra rede",
+    })
+  }).pipe(Effect.scoped),
+)
+
+it.effect("keeps a closed deal final", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    const cookie = yield* loginAs(send, anaEmail, sellerPassword)
+    const leadId = yield* createLead(send, cookie)
+    const dealId = decodeId(yield* jsonOf(yield* createDeal(send, cookie, { leadId }))).id
+    yield* closeDeal(send, cookie, dealId, { result: "WON" })
+    const again = yield* closeDeal(send, cookie, dealId, { result: "LOST", reason: "PRICE" })
+    expect(again.status).toBe(409)
+    expect(yield* jsonOf(again)).toMatchObject({ _tag: "DealClosed" })
+    expect((yield* moveDeal(send, cookie, dealId, "NEGOTIATION")).status).toBe(409)
+  }).pipe(Effect.scoped),
+)
+
+it.effect("scopes closing and details to the deals the user can see", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    const ana = yield* loginAs(send, anaEmail, sellerPassword)
+    const bruno = yield* loginAs(send, brunoEmail, sellerPassword)
+    const demo = yield* loginAs(send, demoEmail, demoPassword)
+    const leadId = yield* createLead(send, ana)
+    const dealId = decodeId(yield* jsonOf(yield* createDeal(send, ana, { leadId }))).id
+    expect((yield* getDeal(send, bruno, dealId)).status).toBe(404)
+    expect((yield* closeDeal(send, bruno, dealId, { result: "WON" })).status).toBe(404)
+    expect((yield* closeDeal(send, undefined, dealId, { result: "WON" })).status).toBe(401)
+    const details = yield* getDeal(send, demo, dealId)
+    expect(details.status).toBe(200)
+    expect(yield* jsonOf(details)).toMatchObject({
+      deal: { id: dealId, status: "NEW" },
+      lead: {
+        id: leadId,
+        name: "Thiago Lima",
+        email: "thiago@academiax.com.br",
+        phone: "11983111234",
+      },
+    })
+    expect((yield* closeDeal(send, demo, dealId, { result: "WON" })).status).toBe(200)
+  }).pipe(Effect.scoped),
+)
+
+it.effect("shows the linked lead to the deal's seller even when the lead is someone else's", () =>
+  Effect.gen(function* () {
+    const { send, sql } = yield* makeTestApi
+    const ids = yield* idsByEmail(sql)
+    const demo = yield* loginAs(send, demoEmail, demoPassword)
+    const bruno = yield* loginAs(send, brunoEmail, sellerPassword)
+    const leadId = yield* createLead(send, demo, { sellerId: ids.ana })
+    const dealId = decodeId(
+      yield* jsonOf(yield* createDeal(send, demo, { leadId, sellerId: ids.bruno })),
+    ).id
+    const details = yield* getDeal(send, bruno, dealId)
+    expect(details.status).toBe(200)
+    expect(yield* jsonOf(details)).toMatchObject({
+      lead: { id: leadId, seller: { name: "Ana Souza" } },
+    })
+  }).pipe(Effect.scoped),
+)
+
+it.effect("derives the lead status from closed deals", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    const cookie = yield* loginAs(send, anaEmail, sellerPassword)
+    const leadId = yield* createLead(send, cookie)
+    const dealId = decodeId(yield* jsonOf(yield* createDeal(send, cookie, { leadId }))).id
+    yield* closeDeal(send, cookie, dealId, { result: "LOST", reason: "NO_BUDGET" })
+    const leads = yield* jsonOf(
+      yield* send(new Request("http://localhost/leads", { headers: { cookie } })),
+    )
+    expect(leads).toMatchObject([{ id: leadId, status: "LOST" }])
   }).pipe(Effect.scoped),
 )
