@@ -1,5 +1,17 @@
-import { CreateDealPayload, InvalidDealLead, OpenDealStatus } from "@crm/contract"
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  CreateDealPayload,
+  hasPermission,
+  InvalidDealLead,
+  InvalidDealSeller,
+  OpenDealStatus,
+} from "@crm/contract"
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Result, Schema, SchemaIssue } from "effect"
 import { type FormEvent, useRef, useState } from "react"
@@ -11,18 +23,25 @@ import { Select } from "../../../components/ui/select.tsx"
 import { TextArea } from "../../../components/ui/text-area.tsx"
 import { TextField } from "../../../components/ui/text-field.tsx"
 import { runApi } from "../../../lib/api-client.ts"
+import { meQueryOptions } from "../../../lib/auth.ts"
 import { dealsQueryKey } from "../../../lib/deals.ts"
 import { dealStatusLabels } from "../../../lib/labels.ts"
-import { leadsQueryKey, leadsQueryOptions } from "../../../lib/leads.ts"
+import { leadsQueryKey, leadsQueryOptions, sellersQueryOptions } from "../../../lib/leads.ts"
 import type { SelectOption } from "../../../lib/use-select.ts"
 
 export const Route = createFileRoute("/_authenticated/deals/new")({
+  loader: async ({ context }) => {
+    const user = await context.queryClient.ensureQueryData(meQueryOptions)
+    if (hasPermission(user, "deal.assign_any"))
+      await context.queryClient.ensureQueryData(sellersQueryOptions)
+  },
   component: NewDeal,
 })
 
 type FormValues = {
   title: string
   leadId: string
+  sellerId: string
   valueCents: number
   status: string
   expectedCloseDate: string
@@ -34,6 +53,7 @@ type FormField = keyof FormValues
 const fieldOrder: ReadonlyArray<FormField> = [
   "title",
   "leadId",
+  "sellerId",
   "valueCents",
   "status",
   "expectedCloseDate",
@@ -43,6 +63,7 @@ const fieldOrder: ReadonlyArray<FormField> = [
 const emptyForm: FormValues = {
   title: "",
   leadId: "",
+  sellerId: "",
   valueCents: 0,
   status: "NEW",
   expectedCloseDate: "",
@@ -52,6 +73,7 @@ const emptyForm: FormValues = {
 const fieldErrorMessages: Record<FormField, string> = {
   title: "Informe o nome do negócio.",
   leadId: "Selecione um lead.",
+  sellerId: "Selecione um vendedor válido.",
   valueCents: "Informe um valor maior que zero.",
   status: "Selecione o status.",
   expectedCloseDate: "Informe uma data válida.",
@@ -64,7 +86,34 @@ const isFormField = (key: unknown): key is FormField =>
 const firstPathKey = (segment: PropertyKey | { readonly key: PropertyKey } | undefined) =>
   typeof segment === "object" ? segment.key : segment
 
+function SellerSelect({
+  value,
+  error,
+  onChange,
+}: {
+  value: string
+  error: string | undefined
+  onChange: (value: string) => void
+}) {
+  const { data: sellers } = useSuspenseQuery(sellersQueryOptions)
+
+  return (
+    <Select
+      label="Vendedor Responsável"
+      required
+      value={value}
+      error={error}
+      name="sellerId"
+      searchable
+      placeholder="Selecionar vendedor"
+      options={sellers.map((seller) => ({ value: seller.id, label: seller.name }))}
+      onChange={onChange}
+    />
+  )
+}
+
 function NewDeal() {
+  const { data: user } = useSuspenseQuery(meQueryOptions)
   const queryClient = useQueryClient()
   const navigate = Route.useNavigate()
   const [values, setValues] = useState<FormValues>(emptyForm)
@@ -72,6 +121,7 @@ function NewDeal() {
   const [selectedLeadLabel, setSelectedLeadLabel] = useState("")
   const [searchText, setSearchText] = useState("")
   const formRef = useRef<HTMLFormElement>(null)
+  const canAssign = hasPermission(user, "deal.assign_any")
 
   const leadsQuery = useQuery({
     ...leadsQueryOptions(searchText ? { search: searchText } : {}),
@@ -100,6 +150,9 @@ function NewDeal() {
       if (error instanceof InvalidDealLead) {
         flushSync(() => setErrors({ leadId: fieldErrorMessages.leadId }))
         focusField("leadId")
+      } else if (error instanceof InvalidDealSeller) {
+        flushSync(() => setErrors({ sellerId: fieldErrorMessages.sellerId }))
+        focusField("sellerId")
       }
     },
   })
@@ -112,6 +165,9 @@ function NewDeal() {
   const onLeadChange = (leadId: string) => {
     setSelectedLeadLabel(leadOptions.find((option) => option.value === leadId)?.label ?? "")
     setValue("leadId", leadId)
+    if (!canAssign) return
+    const lead = leadsQuery.data?.find((candidate) => candidate.id === leadId)
+    if (lead) setValue("sellerId", lead.seller.id)
   }
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -121,6 +177,7 @@ function NewDeal() {
       leadId: values.leadId,
       valueCents: values.valueCents,
       status: values.status,
+      ...(canAssign ? { sellerId: values.sellerId } : {}),
       ...(values.expectedCloseDate === "" ? {} : { expectedCloseDate: values.expectedCloseDate }),
       ...(values.description === "" ? {} : { description: values.description }),
     })
@@ -177,6 +234,13 @@ function NewDeal() {
               emptyMessage="Nenhum lead encontrado"
               selectedLabel={selectedLeadLabel}
             />
+            {canAssign && (
+              <SellerSelect
+                value={values.sellerId}
+                error={errors.sellerId}
+                onChange={(value) => setValue("sellerId", value)}
+              />
+            )}
             <CurrencyField
               label="Valor Estimado (R$)"
               name="valueCents"
@@ -221,11 +285,15 @@ function NewDeal() {
             </div>
           </div>
 
-          {createMutation.isError && !(createMutation.error instanceof InvalidDealLead) && (
-            <p role="alert" className="text-sm text-red-400">
-              Não foi possível salvar o negócio. Tente novamente.
-            </p>
-          )}
+          {createMutation.isError &&
+            !(
+              createMutation.error instanceof InvalidDealLead ||
+              createMutation.error instanceof InvalidDealSeller
+            ) && (
+              <p role="alert" className="text-sm text-red-400">
+                Não foi possível salvar o negócio. Tente novamente.
+              </p>
+            )}
 
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button

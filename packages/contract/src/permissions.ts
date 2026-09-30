@@ -9,6 +9,7 @@ export const Permission = Schema.Literals([
   "lead.assign_any",
   "deal.create",
   "deal.see_all",
+  "deal.assign_any",
   "deal.move",
 ])
 export type Permission = typeof Permission.Type
@@ -20,6 +21,7 @@ export const rolePermissions: Record<Role, ReadonlyArray<Permission>> = {
     "lead.assign_any",
     "deal.create",
     "deal.see_all",
+    "deal.assign_any",
     "deal.move",
   ],
   SELLER: ["lead.create", "deal.create", "deal.move"],

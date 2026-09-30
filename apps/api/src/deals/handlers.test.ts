@@ -105,21 +105,29 @@ it.effect("rejects a deal on another seller's lead or on an unknown lead", () =>
   }).pipe(Effect.scoped),
 )
 
-it.effect("gives the deal the lead's seller and ignores a sent sellerId", () =>
-  Effect.gen(function* () {
-    const { send, sql } = yield* makeTestApi
-    const ids = yield* idsByEmail(sql)
-    const demo = yield* loginAs(send, demoEmail, demoPassword)
-    const ana = yield* loginAs(send, anaEmail, sellerPassword)
-    const anaLeadId = yield* createLead(send, demo, { sellerId: ids.ana })
-    const bySupervisor = yield* createDeal(send, demo, { leadId: anaLeadId, sellerId: ids.bruno })
-    expect(bySupervisor.status).toBe(201)
-    expect(yield* jsonOf(bySupervisor)).toMatchObject({ seller: { name: "Ana Souza" } })
-    const ownLeadId = yield* createLead(send, ana)
-    const bySeller = yield* createDeal(send, ana, { leadId: ownLeadId, sellerId: ids.bruno })
-    expect(bySeller.status).toBe(201)
-    expect(yield* jsonOf(bySeller)).toMatchObject({ seller: { name: "Ana Souza" } })
-  }).pipe(Effect.scoped),
+it.effect(
+  "lets a supervisor keep or change the deal seller and forbids sellers from choosing",
+  () =>
+    Effect.gen(function* () {
+      const { send, sql } = yield* makeTestApi
+      const ids = yield* idsByEmail(sql)
+      const demo = yield* loginAs(send, demoEmail, demoPassword)
+      const ana = yield* loginAs(send, anaEmail, sellerPassword)
+      const leadId = yield* createLead(send, demo, { sellerId: ids.ana })
+      expect(yield* jsonOf(yield* createDeal(send, demo, { leadId }))).toMatchObject({
+        seller: { name: "Ana Souza" },
+      })
+      expect(
+        yield* jsonOf(yield* createDeal(send, demo, { leadId, sellerId: ids.bruno })),
+      ).toMatchObject({ seller: { name: "Bruno Lima" } })
+      const notSeller = yield* createDeal(send, demo, { leadId, sellerId: ids.demo })
+      expect(notSeller.status).toBe(422)
+      expect(yield* jsonOf(notSeller)).toMatchObject({ _tag: "InvalidDealSeller" })
+      expect((yield* createDeal(send, ana, { leadId, sellerId: ids.ana })).status).toBe(403)
+      expect(yield* jsonOf(yield* createDeal(send, ana, { leadId }))).toMatchObject({
+        seller: { name: "Ana Souza" },
+      })
+    }).pipe(Effect.scoped),
 )
 
 it.effect("rejects invalid deal payloads", () =>

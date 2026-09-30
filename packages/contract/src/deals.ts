@@ -42,6 +42,7 @@ const isCalendarDate = (text: string) => {
 export const CreateDealPayload = Schema.Struct({
   title: Schema.Trim.check(Schema.isNonEmpty(), Schema.isMaxLength(120)),
   leadId: Schema.String.check(Schema.isUUID()),
+  sellerId: Schema.optionalKey(Schema.String.check(Schema.isUUID())),
   valueCents: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 99_999_999_999 })),
   status: OpenDealStatus,
   expectedCloseDate: Schema.optionalKey(
@@ -64,6 +65,12 @@ export class InvalidDealLead extends Schema.TaggedError<InvalidDealLead>()(
   { httpApiStatus: 422 },
 ) {}
 
+export class InvalidDealSeller extends Schema.TaggedError<InvalidDealSeller>()(
+  "InvalidDealSeller",
+  {},
+  { httpApiStatus: 422 },
+) {}
+
 export class DealClosed extends Schema.TaggedError<DealClosed>()(
   "DealClosed",
   {},
@@ -82,7 +89,12 @@ export class DealsGroup extends HttpApiGroup.make("deals")
     HttpApiEndpoint.post("create", "/deals", {
       payload: CreateDealPayload,
       success: Deal.pipe(HttpApiSchema.status(201)),
-      error: [HttpApiError.Forbidden, InvalidDealLead, HttpApiError.ServiceUnavailable],
+      error: [
+        HttpApiError.Forbidden,
+        InvalidDealLead,
+        InvalidDealSeller,
+        HttpApiError.ServiceUnavailable,
+      ],
     }).middleware(Authorization),
   )
   .add(

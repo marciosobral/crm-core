@@ -45,7 +45,7 @@ Open decisions: lead fields (name, email, phone, company, source), whether leads
 - [x] Lead status derived from its deals (no deal: "Novo"), with a column and filter in the lead list
 - [x] Tests: create, invalid lead, status transitions
 
-Decisions: statuses Novo, Contato Feito, Proposta Enviada, Negociação (open, free movement) and Ganho, Perdido (closed, set in step 4); the Fechado column groups won and lost deals. Fields: title, linked lead, value (cents), responsible seller (always the lead's seller), initial status, expected close date, description.
+Decisions: statuses Novo, Contato Feito, Proposta Enviada, Negociação (open, free movement) and Ganho, Perdido (closed, set in step 4); the Fechado column groups won and lost deals. Fields: title, linked lead, value (cents), responsible seller (prefilled with the lead's seller, supervisors may change it), initial status, expected close date, description.
 
 ## 4. Closing deals and details
 

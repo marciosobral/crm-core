@@ -220,6 +220,7 @@ it.effect("returns the role and permissions of the current user", () =>
             "lead.assign_any",
             "deal.create",
             "deal.see_all",
+            "deal.assign_any",
             "deal.move",
           ],
         },

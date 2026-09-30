@@ -1,14 +1,23 @@
-import { CrmApi, CurrentUser, DealClosed, hasPermission, InvalidDealLead } from "@crm/contract"
+import {
+  CrmApi,
+  CurrentUser,
+  DealClosed,
+  hasPermission,
+  InvalidDealLead,
+  InvalidDealSeller,
+} from "@crm/contract"
 import { Effect, Option } from "effect"
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
 import { requirePermission } from "../auth/permissions.ts"
 import { nullIfBlank } from "../platform/text.ts"
 import { failUnavailable } from "../platform/unavailable.ts"
+import { SellersRepository } from "../sellers/repository.ts"
 import { DealsRepository } from "./repository.ts"
 
 export const DealsLive = HttpApiBuilder.group(CrmApi, "deals", (handlers) =>
   Effect.gen(function* () {
     const deals = yield* DealsRepository
+    const sellers = yield* SellersRepository
 
     return handlers
       .handle("list", ({ query }) =>
@@ -26,12 +35,18 @@ export const DealsLive = HttpApiBuilder.group(CrmApi, "deals", (handlers) =>
       .handle("create", ({ payload }) =>
         Effect.gen(function* () {
           const user = yield* requirePermission("deal.create")
+          const canAssign = hasPermission(user, "deal.assign_any")
+          if (!canAssign && payload.sellerId !== undefined)
+            return yield* new HttpApiError.Forbidden()
           const leadSellerId = yield* deals.findLeadSellerId(payload.leadId)
           if (
             Option.isNone(leadSellerId) ||
             (!hasPermission(user, "lead.see_all") && leadSellerId.value !== user.id)
           )
             return yield* new InvalidDealLead()
+          const sellerId = payload.sellerId ?? leadSellerId.value
+          if (payload.sellerId !== undefined && !(yield* sellers.isSeller(payload.sellerId)))
+            return yield* new InvalidDealSeller()
           const deal = yield* deals.create({
             title: payload.title,
             valueCents: payload.valueCents,
@@ -39,7 +54,7 @@ export const DealsLive = HttpApiBuilder.group(CrmApi, "deals", (handlers) =>
             expectedCloseDate: payload.expectedCloseDate ?? null,
             description: nullIfBlank(payload.description),
             leadId: payload.leadId,
-            sellerId: leadSellerId.value,
+            sellerId,
             createdBy: user.id,
           })
           yield* Effect.logInfo("Deal created").pipe(Effect.annotateLogs({ dealId: deal.id }))
