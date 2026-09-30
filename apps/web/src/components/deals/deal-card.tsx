@@ -19,21 +19,25 @@ const initialsOf = (name: string) =>
 type DealCardProps = {
   deal: Deal
   canMove: boolean
+  canClose: boolean
   isSelected: boolean
   onOpen: () => void
   shouldFocusMoveButton: boolean
   onMoveButtonFocused: () => void
   onMove: (status: OpenDealStatus) => void
+  onCloseRequest: (mode: "WON" | "LOST") => void
 }
 
 export function DealCard({
   deal,
   canMove,
+  canClose,
   isSelected,
   onOpen,
   shouldFocusMoveButton,
   onMoveButtonFocused,
   onMove,
+  onCloseRequest,
 }: DealCardProps) {
   const ref = useRef<HTMLElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -67,6 +71,12 @@ export function DealCard({
             to="/deals/$dealId"
             params={{ dealId: deal.id }}
             draggable={false}
+            ref={(link) => {
+              // A closed card has no move button, so its title link is the only element that can take the focus request.
+              if (!shouldFocusMoveButton || Option.isSome(openStatus) || !link) return
+              link.focus()
+              onMoveButtonFocused()
+            }}
             className="after:absolute after:inset-0"
             onClick={(event) => {
               // From lg up the details open in the board's side panel instead of navigating to the page.
@@ -98,11 +108,14 @@ export function DealCard({
         <span className="relative z-10 flex shrink-0 items-center gap-1">
           {isMovable && Option.isSome(openStatus) && (
             <MoveMenu
+              dealId={deal.id}
               dealTitle={deal.title}
               currentStatus={openStatus.value}
+              canClose={canClose}
               shouldFocusButton={shouldFocusMoveButton}
               onButtonFocused={onMoveButtonFocused}
               onMove={onMove}
+              onCloseRequest={onCloseRequest}
             />
           )}
           <span

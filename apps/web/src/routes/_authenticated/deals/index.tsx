@@ -14,6 +14,7 @@ import { Plus } from "lucide-react"
 import { useEffect, useEffectEvent, useState } from "react"
 import { BoardColumn, type MoveFocusRequest } from "../../../components/deals/board-column.tsx"
 import { boardColumns } from "../../../components/deals/board-columns.ts"
+import { CloseDealDialog } from "../../../components/deals/close-deal-dialog.tsx"
 import { DealPanel } from "../../../components/deals/deal-panel.tsx"
 import { FiltersBar } from "../../../components/layout/filters-bar.tsx"
 import { SellerFilter } from "../../../components/layout/seller-filter.tsx"
@@ -79,11 +80,15 @@ function DealBoard() {
   const [announcement, setAnnouncement] = useState("")
   // Moving from the menu remounts the card in its new column (or back, on rollback), which drops focus; the moved card's button takes it back.
   const [focusRequest, setFocusRequest] = useState<MoveFocusRequest | undefined>(undefined)
+  const [closing, setClosing] = useState<
+    { deal: Deal; mode: "choose" | "WON" | "LOST" } | undefined
+  >(undefined)
   const listQueryKey = dealsQueryOptions(filters).queryKey
 
   const canSeeAll = hasPermission(user, "deal.see_all")
   const canCreate = hasPermission(user, "deal.create")
   const canMove = hasPermission(user, "deal.move")
+  const canClose = hasPermission(user, "deal.close")
   const deals = dealsQuery.data
 
   const moveMutation = useMutation({
@@ -128,12 +133,19 @@ function DealBoard() {
       moveMutation.mutate({ deal, status: status.value })
   })
 
+  const closeDroppedDeal = useEffectEvent((dealId: unknown) => {
+    const deal = deals?.find((item) => item.id === dealId)
+    if (deal) setClosing({ deal, mode: "choose" })
+  })
+
   useEffect(
     () =>
       monitorForElements({
         onDrop: ({ source, location }) => {
           const target = location.current.dropTargets[0]
-          if (target) moveDroppedDeal(source.data.dealId, target.data.status)
+          if (!target) return
+          if (target.data.closing === true) closeDroppedDeal(source.data.dealId)
+          else moveDroppedDeal(source.data.dealId, target.data.status)
         },
       }),
     [],
@@ -231,6 +243,7 @@ function DealBoard() {
                 column={column}
                 deals={deals.filter((deal) => column.statuses.includes(deal.status))}
                 canMove={canMove}
+                canClose={canClose}
                 selectedDealId={selectedDealId}
                 onOpenDeal={(deal) =>
                   void navigate({ search: (previous) => ({ ...previous, dealId: deal.id }) })
@@ -240,6 +253,7 @@ function DealBoard() {
                 onMove={(deal, status) =>
                   moveMutation.mutate({ deal, status, shouldRefocus: true })
                 }
+                onCloseRequest={(deal, mode) => setClosing({ deal, mode })}
               />
             ))}
           </div>
@@ -251,6 +265,27 @@ function DealBoard() {
             />
           )}
         </div>
+      )}
+      {closing && (
+        <CloseDealDialog
+          key={closing.deal.id}
+          deal={closing.deal}
+          initialMode={closing.mode}
+          onDismiss={() => {
+            setFocusRequest({ dealId: closing.deal.id, status: closing.deal.status })
+            setClosing(undefined)
+          }}
+          onClosed={(closedDeal) => {
+            queryClient.setQueryData(listQueryKey, (current) =>
+              current?.map((item) => (item.id === closedDeal.id ? closedDeal : item)),
+            )
+            setClosing(undefined)
+            setAnnouncement(
+              `Negócio "${closedDeal.title}" marcado como ${closedDeal.status === "WON" ? "ganho" : "perdido"}.`,
+            )
+            setFocusRequest({ dealId: closedDeal.id, status: closedDeal.status })
+          }}
+        />
       )}
     </div>
   )

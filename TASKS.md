@@ -50,8 +50,8 @@ Decisions: statuses Novo, Contato Feito, Proposta Enviada, Negociação (open, f
 ## 4. Closing deals and details
 
 - [x] Contract: mark a deal as won or lost (closing is explicit and final)
-- [ ] Web: deal details screen (Figma)
-- [ ] From the kanban card: open details, mark as won or lost
+- [x] Web: deal details screen (Figma)
+- [x] From the kanban card: open details, mark as won or lost
 - [x] Tests: close as won, close as lost, reject changes to a closed deal
 
 Decisions: a loss needs a reason from a closed set (price, competitor, no budget, no response, gave up, other) with an optional detail, required for "other"; closing is final, with no reopening; details open in a board side panel and on a full page; deals close from the details, the card menu or a drop on the Fechado column.
