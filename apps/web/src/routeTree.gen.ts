@@ -13,6 +13,7 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedDealsIndexRouteImport } from './routes/_authenticated/deals/index'
+import { Route as AuthenticatedDealsDealIdRouteImport } from './routes/_authenticated/deals/$dealId'
 import { Route as AuthenticatedDealsNewRouteImport } from './routes/_authenticated/deals/new'
 import { Route as AuthenticatedLeadsIndexRouteImport } from './routes/_authenticated/leads/index'
 import { Route as AuthenticatedLeadsNewRouteImport } from './routes/_authenticated/leads/new'
@@ -36,6 +37,12 @@ const AuthenticatedDealsIndexRoute = AuthenticatedDealsIndexRouteImport.update({
   path: '/deals/',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedDealsDealIdRoute =
+  AuthenticatedDealsDealIdRouteImport.update({
+    id: '/deals/$dealId',
+    path: '/deals/$dealId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedDealsNewRoute = AuthenticatedDealsNewRouteImport.update({
   id: '/deals/new',
   path: '/deals/new',
@@ -55,6 +62,7 @@ const AuthenticatedLeadsNewRoute = AuthenticatedLeadsNewRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/login': typeof LoginRoute
+  '/deals/$dealId': typeof AuthenticatedDealsDealIdRoute
   '/deals/new': typeof AuthenticatedDealsNewRoute
   '/leads/new': typeof AuthenticatedLeadsNewRoute
   '/deals/': typeof AuthenticatedDealsIndexRoute
@@ -63,6 +71,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/': typeof AuthenticatedIndexRoute
+  '/deals/$dealId': typeof AuthenticatedDealsDealIdRoute
   '/deals/new': typeof AuthenticatedDealsNewRoute
   '/leads/new': typeof AuthenticatedLeadsNewRoute
   '/deals': typeof AuthenticatedDealsIndexRoute
@@ -73,6 +82,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/deals/$dealId': typeof AuthenticatedDealsDealIdRoute
   '/_authenticated/deals/new': typeof AuthenticatedDealsNewRoute
   '/_authenticated/leads/new': typeof AuthenticatedLeadsNewRoute
   '/_authenticated/deals/': typeof AuthenticatedDealsIndexRoute
@@ -81,14 +91,28 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/login' | '/deals/new' | '/leads/new' | '/deals/' | '/leads/'
+    | '/'
+    | '/login'
+    | '/deals/$dealId'
+    | '/deals/new'
+    | '/leads/new'
+    | '/deals/'
+    | '/leads/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/' | '/deals/new' | '/leads/new' | '/deals' | '/leads'
+  to:
+    | '/login'
+    | '/'
+    | '/deals/$dealId'
+    | '/deals/new'
+    | '/leads/new'
+    | '/deals'
+    | '/leads'
   id:
     | '__root__'
     | '/_authenticated'
     | '/login'
     | '/_authenticated/'
+    | '/_authenticated/deals/$dealId'
     | '/_authenticated/deals/new'
     | '/_authenticated/leads/new'
     | '/_authenticated/deals/'
@@ -130,6 +154,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDealsIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/deals/$dealId': {
+      id: '/_authenticated/deals/$dealId'
+      path: '/deals/$dealId'
+      fullPath: '/deals/$dealId'
+      preLoaderRoute: typeof AuthenticatedDealsDealIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/deals/new': {
       id: '/_authenticated/deals/new'
       path: '/deals/new'
@@ -156,6 +187,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedDealsDealIdRoute: typeof AuthenticatedDealsDealIdRoute
   AuthenticatedDealsNewRoute: typeof AuthenticatedDealsNewRoute
   AuthenticatedLeadsNewRoute: typeof AuthenticatedLeadsNewRoute
   AuthenticatedDealsIndexRoute: typeof AuthenticatedDealsIndexRoute
@@ -164,6 +196,7 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedDealsDealIdRoute: AuthenticatedDealsDealIdRoute,
   AuthenticatedDealsNewRoute: AuthenticatedDealsNewRoute,
   AuthenticatedLeadsNewRoute: AuthenticatedLeadsNewRoute,
   AuthenticatedDealsIndexRoute: AuthenticatedDealsIndexRoute,

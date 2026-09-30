@@ -12,6 +12,8 @@ type BoardColumnProps = {
   column: BoardColumnConfig
   deals: ReadonlyArray<Deal>
   canMove: boolean
+  selectedDealId: string | undefined
+  onOpenDeal: (deal: Deal) => void
   focusRequest: MoveFocusRequest | undefined
   onMoveButtonFocused: () => void
   onMove: (deal: Deal, status: OpenDealStatus) => void
@@ -21,6 +23,8 @@ export function BoardColumn({
   column,
   deals,
   canMove,
+  selectedDealId,
+  onOpenDeal,
   focusRequest,
   onMoveButtonFocused,
   onMove,
@@ -46,12 +50,12 @@ export function BoardColumn({
     <section
       ref={ref}
       aria-labelledby={`column-${column.status}`}
-      className="flex w-[272px] shrink-0 snap-start flex-col lg:w-auto lg:min-w-0 lg:flex-1"
+      className="flex w-[272px] shrink-0 snap-start flex-col lg:w-auto lg:min-w-[180px] lg:flex-1"
     >
       <header className="mx-[9px] mb-3 flex items-center justify-between gap-2 border-b border-line pb-3">
         <h2
           id={`column-${column.status}`}
-          className="flex items-center gap-2 text-sm font-bold text-white"
+          className="flex items-center gap-2 text-sm font-bold whitespace-nowrap text-white"
         >
           <span
             aria-hidden="true"
@@ -79,6 +83,8 @@ export function BoardColumn({
             <DealCard
               deal={deal}
               canMove={canMove}
+              isSelected={selectedDealId === deal.id}
+              onOpen={() => onOpenDeal(deal)}
               shouldFocusMoveButton={
                 focusRequest?.dealId === deal.id && focusRequest.status === deal.status
               }
