@@ -2,12 +2,10 @@ import { CrmApi, CurrentUser, hasPermission, InvalidLeadSeller } from "@crm/cont
 import { Effect } from "effect"
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
 import { requirePermission } from "../auth/permissions.ts"
+import { nullIfBlank } from "../platform/text.ts"
 import { failUnavailable } from "../platform/unavailable.ts"
 import { SellersRepository } from "../sellers/repository.ts"
 import { LeadsRepository } from "./repository.ts"
-
-const nullIfBlank = (text: string | undefined) =>
-  text === undefined || text.trim() === "" ? null : text
 
 export const LeadsLive = HttpApiBuilder.group(CrmApi, "leads", (handlers) =>
   Effect.gen(function* () {

@@ -2,6 +2,7 @@ import { Lead, LeadSource, Seller } from "@crm/contract"
 import { Context, Effect, Layer, Option, Schema } from "effect"
 import { SqlClient, type SqlError, SqlSchema } from "effect/unstable/sql"
 import { dieOnSchemaError } from "../platform/schema-defects.ts"
+import { escapeLikePattern } from "../platform/sql-like.ts"
 
 const LeadRow = Schema.Struct({
   id: Schema.String,
@@ -47,8 +48,6 @@ const NewLead = Schema.Struct({
   sellerId: Schema.String,
   createdBy: Schema.String,
 })
-
-const escapeLikePattern = (text: string) => text.replace(/[\\%_]/g, "\\$&")
 
 export class LeadsRepository extends Context.Service<
   LeadsRepository,
