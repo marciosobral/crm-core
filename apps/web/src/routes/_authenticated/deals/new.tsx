@@ -2,11 +2,10 @@ import { CreateDealPayload, InvalidDealLead, OpenDealStatus } from "@crm/contrac
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Result, Schema, SchemaIssue } from "effect"
-import { type FormEvent, useEffect, useRef, useState } from "react"
+import { type FormEvent, useRef, useState } from "react"
 import { flushSync } from "react-dom"
 import { TopBar } from "../../../components/layout/top-bar.tsx"
 import { Button } from "../../../components/ui/button.tsx"
-import { Combobox, type ComboboxOption } from "../../../components/ui/combobox.tsx"
 import { CurrencyField } from "../../../components/ui/currency-field.tsx"
 import { Select } from "../../../components/ui/select.tsx"
 import { TextArea } from "../../../components/ui/text-area.tsx"
@@ -15,6 +14,7 @@ import { runApi } from "../../../lib/api-client.ts"
 import { dealsQueryKey } from "../../../lib/deals.ts"
 import { dealStatusLabels } from "../../../lib/labels.ts"
 import { leadsQueryKey, leadsQueryOptions } from "../../../lib/leads.ts"
+import type { SelectOption } from "../../../lib/use-select.ts"
 
 export const Route = createFileRoute("/_authenticated/deals/new")({
   component: NewDeal,
@@ -69,21 +69,15 @@ function NewDeal() {
   const navigate = Route.useNavigate()
   const [values, setValues] = useState<FormValues>(emptyForm)
   const [errors, setErrors] = useState<Partial<Record<FormField, string>>>({})
-  const [leadText, setLeadText] = useState("")
-  const [typedText, setTypedText] = useState("")
+  const [selectedLeadLabel, setSelectedLeadLabel] = useState("")
   const [searchText, setSearchText] = useState("")
   const formRef = useRef<HTMLFormElement>(null)
-
-  useEffect(() => {
-    const timeout = setTimeout(() => setSearchText(typedText), 300)
-    return () => clearTimeout(timeout)
-  }, [typedText])
 
   const leadsQuery = useQuery({
     ...leadsQueryOptions(searchText ? { search: searchText } : {}),
     placeholderData: keepPreviousData,
   })
-  const leadOptions: ReadonlyArray<ComboboxOption> = (leadsQuery.data ?? [])
+  const leadOptions: ReadonlyArray<SelectOption> = (leadsQuery.data ?? [])
     .slice(0, 8)
     .map((lead) => ({ value: lead.id, label: `${lead.name} (${lead.company})` }))
 
@@ -115,15 +109,9 @@ function NewDeal() {
     setErrors(({ [field]: _removed, ...rest }) => rest)
   }
 
-  const onLeadInputChange = (text: string) => {
-    setLeadText(text)
-    setTypedText(text)
-    setValue("leadId", "")
-  }
-
-  const onLeadSelect = (option: ComboboxOption) => {
-    setLeadText(option.label)
-    setValue("leadId", option.value)
+  const onLeadChange = (leadId: string) => {
+    setSelectedLeadLabel(leadOptions.find((option) => option.value === leadId)?.label ?? "")
+    setValue("leadId", leadId)
   }
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -174,18 +162,20 @@ function NewDeal() {
               error={errors.title}
               onChange={(event) => setValue("title", event.target.value)}
             />
-            <Combobox
+            <Select
               label="Lead Vinculado"
               name="leadId"
               required
+              searchable
               placeholder="Buscar lead cadastrado..."
               error={errors.leadId}
-              inputValue={leadText}
-              onInputChange={onLeadInputChange}
+              value={values.leadId}
               options={leadOptions}
-              isLoading={leadsQuery.isPending}
+              onChange={onLeadChange}
+              onSearchChange={setSearchText}
+              isLoading={leadsQuery.isFetching}
               emptyMessage="Nenhum lead encontrado"
-              onSelect={onLeadSelect}
+              selectedLabel={selectedLeadLabel}
             />
             <CurrencyField
               label="Valor Estimado (R$)"
@@ -203,14 +193,13 @@ function NewDeal() {
               required
               value={values.status}
               error={errors.status}
-              onChange={(event) => setValue("status", event.target.value)}
-            >
-              {OpenDealStatus.literals.map((status) => (
-                <option key={status} value={status}>
-                  {dealStatusLabels[status]}
-                </option>
-              ))}
-            </Select>
+              placeholder="Selecione o status"
+              options={OpenDealStatus.literals.map((status) => ({
+                value: status,
+                label: dealStatusLabels[status],
+              }))}
+              onChange={(status) => setValue("status", status)}
+            />
             <TextField
               label="Data Prevista de Fechamento"
               name="expectedCloseDate"

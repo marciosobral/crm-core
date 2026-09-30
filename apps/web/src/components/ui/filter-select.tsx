@@ -1,38 +1,79 @@
 import { ChevronDown } from "lucide-react"
+import { cn } from "../../lib/cn.ts"
+import { type SelectOption, useSelect } from "../../lib/use-select.ts"
+import { ChevronToggle, SelectList } from "./select-list.tsx"
 
 type FilterSelectProps = {
   label: string
   value: string
-  options: ReadonlyArray<{ value: string; label: string }>
+  options: ReadonlyArray<SelectOption>
   onChange: (value: string) => void
+  searchable?: boolean
 }
 
-// The native select is invisible and stretched over the whole control so a click anywhere
-// (padding, chevron) opens it; the visible text is rendered separately.
-export function FilterSelect({ label, value, options, onChange }: FilterSelectProps) {
-  const selectedLabel = options.find((option) => option.value === value)?.label ?? ""
+export function FilterSelect({
+  label,
+  value,
+  options,
+  onChange,
+  searchable = false,
+}: FilterSelectProps) {
+  const select = useSelect({
+    value,
+    options,
+    onChange,
+    isSearchable: searchable,
+    onSearchChange: undefined,
+    isLoading: false,
+    emptyMessage: "Nenhuma opção encontrada",
+    selectedLabel: undefined,
+    matchAnchorWidth: false,
+  })
+  const triggerProps = { ...select.triggerProps, ref: select.triggerRef, id: select.id }
 
   return (
-    <div className="relative flex h-[33px] items-center gap-1 rounded-md border border-line bg-canvas pr-8 pl-3.5 text-[13px] leading-none whitespace-nowrap text-muted focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/40">
-      <span aria-hidden="true">
-        {label}: {selectedLabel}
-      </span>
-      <ChevronDown
-        aria-hidden="true"
-        className="pointer-events-none absolute right-3.5 size-3 text-muted"
+    // biome-ignore lint/a11y/useKeyWithClickEvents: the click only widens the input's hit area; keyboard users use the input.
+    // biome-ignore lint/a11y/noStaticElementInteractions: same reason.
+    <div
+      ref={select.containerRef}
+      onClick={searchable ? select.openFromBox : undefined}
+      className={cn(
+        "relative h-[33px] rounded-md border border-line bg-canvas text-[13px] leading-none whitespace-nowrap text-muted focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/40",
+        searchable && "flex items-center gap-1 pr-8 pl-3.5",
+      )}
+    >
+      {searchable ? (
+        <>
+          <span aria-hidden="true">{label}:</span>
+          <input
+            {...triggerProps}
+            {...select.searchInputProps}
+            aria-label={label}
+            className="field-sizing-content max-w-44 min-w-12 bg-transparent text-muted outline-none"
+          />
+          <ChevronToggle isOpen={select.isOpen} onToggle={select.toggle} className="right-3.5" />
+        </>
+      ) : (
+        <>
+          <button
+            {...triggerProps}
+            type="button"
+            aria-label={label}
+            className="flex size-full cursor-pointer items-center gap-1 pr-8 pl-3.5 text-left outline-none"
+          >
+            {label}: {select.selectedText}
+          </button>
+          <ChevronDown
+            aria-hidden="true"
+            className="pointer-events-none absolute top-1/2 right-3.5 size-3 -translate-y-1/2 text-muted"
+          />
+        </>
+      )}
+      <SelectList
+        list={select.list}
+        label={label}
+        className="w-max max-w-[calc(100vw-1rem)] min-w-44"
       />
-      <select
-        aria-label={label}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="absolute inset-0 size-full cursor-pointer appearance-none opacity-0 [&>option]:bg-surface [&>option]:text-white"
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
     </div>
   )
 }

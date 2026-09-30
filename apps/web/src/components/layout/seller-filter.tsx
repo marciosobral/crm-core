@@ -13,6 +13,7 @@ export function SellerFilter({ sellerId, onChange }: SellerFilterProps) {
   return (
     <FilterSelect
       label="Vendedor"
+      searchable
       value={sellerId ?? ""}
       options={[
         { value: "", label: "Todos" },

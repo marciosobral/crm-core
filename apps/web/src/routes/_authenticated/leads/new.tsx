@@ -95,15 +95,11 @@ function SellerSelect({
         value={value}
         error={error}
         name="sellerId"
-        onChange={(event) => onChange(event.target.value)}
-      >
-        <option value="">Atribuir a um vendedor</option>
-        {sellers.map((seller) => (
-          <option key={seller.id} value={seller.id}>
-            {seller.name}
-          </option>
-        ))}
-      </Select>
+        searchable
+        placeholder="Atribuir a um vendedor"
+        options={sellers.map((seller) => ({ value: seller.id, label: seller.name }))}
+        onChange={onChange}
+      />
     </div>
   )
 }
@@ -238,15 +234,13 @@ function NewLead() {
               required
               value={values.source}
               error={errors.source}
-              onChange={(event) => setValue("source", event.target.value)}
-            >
-              <option value="">Selecione a Origem</option>
-              {LeadSource.literals.map((source) => (
-                <option key={source} value={source}>
-                  {sourceLabels[source]}
-                </option>
-              ))}
-            </Select>
+              placeholder="Selecione a origem"
+              options={LeadSource.literals.map((source) => ({
+                value: source,
+                label: sourceLabels[source],
+              }))}
+              onChange={(source) => setValue("source", source)}
+            />
             {canAssign && (
               <SellerSelect
                 value={values.sellerId}
