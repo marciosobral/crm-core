@@ -233,7 +233,7 @@ function NewLead() {
               onChange={(event) => setValue("jobTitle", event.target.value)}
             />
             <Select
-              label="Origem do Lead"
+              label="Origem do lead"
               name="source"
               required
               value={values.source}

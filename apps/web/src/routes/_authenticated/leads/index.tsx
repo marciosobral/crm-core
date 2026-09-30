@@ -38,8 +38,10 @@ export const Route = createFileRoute("/_authenticated/leads/")({
   component: LeadList,
 })
 
-const leadCountLabel = (count: number) =>
-  count === 1 ? "1 Lead encontrado" : `${count} Leads encontrados`
+const leadCountLabel = (count: number) => {
+  if (count === 0) return "Nenhum lead encontrado"
+  return count === 1 ? "1 lead encontrado" : `${count} leads encontrados`
+}
 
 function SellerFilter({
   sellerId,
