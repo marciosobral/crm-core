@@ -14,6 +14,8 @@ import { AuthLive } from "../auth/handlers.ts"
 import { LoginAttemptsLive } from "../auth/login-attempts.ts"
 import { AuthorizationLive } from "../auth/middleware.ts"
 import { AuthRepositoryLive } from "../auth/repository.ts"
+import { DealsLive } from "../deals/handlers.ts"
+import { DealsRepositoryLive } from "../deals/repository.ts"
 import { HealthLive } from "../health/handlers.ts"
 import { LeadsLive } from "../leads/handlers.ts"
 import { LeadsRepositoryLive } from "../leads/repository.ts"
@@ -86,13 +88,19 @@ export const ApiRoutes = HttpApiBuilder.layer(CrmApi).pipe(
     HealthLive,
     AuthLive.pipe(Layer.provide(LoginAttemptsLive)),
     LeadsLive,
+    DealsLive,
     SellersLive,
     SecurityHeaders,
     BodySizeLimit,
     CrossOriginGuard,
   ]),
   Layer.provide(AuthorizationLive),
-  Layer.provide([AuthRepositoryLive, LeadsRepositoryLive, SellersRepositoryLive]),
+  Layer.provide([
+    AuthRepositoryLive,
+    LeadsRepositoryLive,
+    DealsRepositoryLive,
+    SellersRepositoryLive,
+  ]),
 )
 
 export const ApiLive = ApiRoutes.pipe(Layer.provide(DatabaseLive))

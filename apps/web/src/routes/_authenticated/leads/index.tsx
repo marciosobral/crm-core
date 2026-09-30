@@ -1,35 +1,39 @@
-import { hasPermission } from "@crm/contract"
+import { DealStatus, hasPermission } from "@crm/contract"
 import { keepPreviousData, useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
-import { Plus, Search } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { Option, Schema } from "effect"
+import { Plus } from "lucide-react"
 import { FiltersBar } from "../../../components/layout/filters-bar.tsx"
+import { SellerFilter } from "../../../components/layout/seller-filter.tsx"
 import { TopBar } from "../../../components/layout/top-bar.tsx"
 import { variantClasses } from "../../../components/ui/button.tsx"
 import { FilterSelect } from "../../../components/ui/filter-select.tsx"
+import { SearchInput } from "../../../components/ui/search-input.tsx"
+import { StatusBadge } from "../../../components/ui/status-badge.tsx"
 import { Table, TableCell, TableHead, TableRow } from "../../../components/ui/table.tsx"
 import { meQueryOptions } from "../../../lib/auth.ts"
 import { cn } from "../../../lib/cn.ts"
-import { leadsQueryOptions, sellersQueryOptions } from "../../../lib/leads.ts"
+import { dealStatusLabels } from "../../../lib/labels.ts"
+import { isVisibleSellerId, leadsQueryOptions, sellersQueryOptions } from "../../../lib/leads.ts"
 import { formatPhone } from "../../../lib/phone.ts"
+import { useUrlSearch } from "../../../lib/use-url-search.ts"
 
 export const Route = createFileRoute("/_authenticated/leads/")({
-  validateSearch: (search: Record<string, unknown>): { search?: string; sellerId?: string } => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { search?: string; sellerId?: string; status?: DealStatus } => ({
     ...(typeof search.search === "string" ? { search: search.search } : {}),
     ...(typeof search.sellerId === "string" ? { sellerId: search.sellerId } : {}),
+    ...(Schema.is(DealStatus)(search.status) ? { status: search.status } : {}),
   }),
-  // Search params are not loader deps: the list query lives in the component so filtering keeps the page mounted.
   // Drops a sellerId the UI cannot show (no permission or unknown seller) so the select always matches the applied filter.
   beforeLoad: async ({ context, search }) => {
     const { sellerId, ...rest } = search
     if (sellerId === undefined) return
-    const user = await context.queryClient.ensureQueryData(meQueryOptions)
-    const sellers = hasPermission(user, "lead.see_all")
-      ? await context.queryClient.ensureQueryData(sellersQueryOptions)
-      : []
-    if (!sellers.some((seller) => seller.id === sellerId))
+    if (!(await isVisibleSellerId(context.queryClient, sellerId, "lead.see_all")))
       throw redirect({ to: "/leads", search: rest, replace: true })
   },
+  // Search params are not loader deps: the list query lives in the component so filtering keeps the page mounted.
   loader: async ({ context }) => {
     const user = await context.queryClient.ensureQueryData(meQueryOptions)
     if (hasPermission(user, "lead.see_all"))
@@ -38,59 +42,9 @@ export const Route = createFileRoute("/_authenticated/leads/")({
   component: LeadList,
 })
 
-const leadCountLabel = (count: number) =>
-  count === 1 ? "1 Lead encontrado" : `${count} Leads encontrados`
-
-function SellerFilter({
-  sellerId,
-  onChange,
-}: {
-  sellerId: string | undefined
-  onChange: (sellerId: string) => void
-}) {
-  const { data: sellers } = useSuspenseQuery(sellersQueryOptions)
-
-  return (
-    <FilterSelect
-      label="Vendedor"
-      value={sellerId ?? ""}
-      onChange={(event) => onChange(event.target.value)}
-    >
-      <option value="">Todos</option>
-      {sellers.map((seller) => (
-        <option key={seller.id} value={seller.id}>
-          {seller.name}
-        </option>
-      ))}
-    </FilterSelect>
-  )
-}
-
-function LeadSearch({
-  className,
-  value,
-  onChange,
-}: {
-  className: string
-  value: string
-  onChange: (value: string) => void
-}) {
-  return (
-    <div className={cn("relative", className)}>
-      <Search
-        className="pointer-events-none absolute top-1/2 left-4 size-3.5 -translate-y-1/2 text-muted"
-        aria-hidden="true"
-      />
-      <input
-        type="search"
-        aria-label="Buscar leads"
-        placeholder="Buscar..."
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-[34px] w-full rounded-md border border-line bg-canvas pr-4 pl-[38px] text-sm leading-none outline-none placeholder:text-placeholder focus:border-brand focus-visible:ring-2 focus-visible:ring-brand/40"
-      />
-    </div>
-  )
+const leadCountLabel = (count: number) => {
+  if (count === 0) return "Nenhum lead encontrado"
+  return count === 1 ? "1 lead encontrado" : `${count} leads encontrados`
 }
 
 function LeadList() {
@@ -98,41 +52,25 @@ function LeadList() {
   const navigate = Route.useNavigate()
   const { data: user } = useSuspenseQuery(meQueryOptions)
   const leadsQuery = useQuery({ ...leadsQueryOptions(search), placeholderData: keepPreviousData })
-  const [searchText, setSearchText] = useState(search.search ?? "")
-  const pushedSearchRef = useRef(search.search)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-
-  const canSeeAll = hasPermission(user, "lead.see_all")
-  const canCreate = hasPermission(user, "lead.create")
-  const hasFilters = Boolean(search.search || search.sellerId)
-  const leads = leadsQuery.data
-
-  // Only URL changes that did not come from typing (sidebar link, back/forward) overwrite the input.
-  useEffect(() => {
-    if (search.search === pushedSearchRef.current) return
-    pushedSearchRef.current = search.search
-    clearTimeout(debounceRef.current)
-    setSearchText(search.search ?? "")
-  }, [search.search])
-
-  useEffect(() => () => clearTimeout(debounceRef.current), [])
-
-  const onSearchTextChange = (value: string) => {
-    setSearchText(value)
-    clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
-      pushedSearchRef.current = value || undefined
+  const { searchText, onSearchTextChange } = useUrlSearch(
+    search.search,
+    (value) =>
       void navigate({
         search: ({ search: _previous, ...rest }) => (value ? { ...rest, search: value } : rest),
         replace: true,
-      })
-    }, 300)
-  }
+      }),
+  )
+
+  const canSeeAll = hasPermission(user, "lead.see_all")
+  const canCreate = hasPermission(user, "lead.create")
+  const hasFilters = Boolean(search.search || search.sellerId || search.status)
+  const leads = leadsQuery.data
 
   return (
     <>
       <TopBar title="Lista de Leads">
-        <LeadSearch
+        <SearchInput
+          label="Buscar leads"
           className="hidden md:block md:w-64 lg:w-80"
           value={searchText}
           onChange={onSearchTextChange}
@@ -153,7 +91,14 @@ function LeadList() {
 
       <FiltersBar
         summary={leads && !leadsQuery.isPlaceholderData ? leadCountLabel(leads.length) : ""}
-        search={<LeadSearch className="w-full" value={searchText} onChange={onSearchTextChange} />}
+        search={
+          <SearchInput
+            label="Buscar leads"
+            className="w-full"
+            value={searchText}
+            onChange={onSearchTextChange}
+          />
+        }
       >
         {canSeeAll && (
           <SellerFilter
@@ -166,6 +111,25 @@ function LeadList() {
             }
           />
         )}
+        <FilterSelect
+          label="Status"
+          value={search.status ?? ""}
+          options={[
+            { value: "", label: "Todos" },
+            ...DealStatus.literals.map((status) => ({
+              value: status,
+              label: dealStatusLabels[status],
+            })),
+          ]}
+          onChange={(value) =>
+            void navigate({
+              search: ({ status: _previous, ...rest }) => {
+                const status = Schema.decodeUnknownOption(DealStatus)(value)
+                return Option.isSome(status) ? { ...rest, status: status.value } : rest
+              },
+            })
+          }
+        />
       </FiltersBar>
 
       <section className="p-4 md:p-8">
@@ -200,6 +164,7 @@ function LeadList() {
                   <TableHead>Empresa</TableHead>
                   <TableHead>E-mail</TableHead>
                   <TableHead>Telefone</TableHead>
+                  <TableHead>Status</TableHead>
                   {canSeeAll && <TableHead>Vendedor</TableHead>}
                 </TableRow>
               </thead>
@@ -210,6 +175,9 @@ function LeadList() {
                     <TableCell isSecondary>{lead.company}</TableCell>
                     <TableCell isSecondary>{lead.email}</TableCell>
                     <TableCell isSecondary>{formatPhone(lead.phone)}</TableCell>
+                    <TableCell>
+                      <StatusBadge status={lead.status} />
+                    </TableCell>
                     {canSeeAll && <TableCell>{lead.seller.name}</TableCell>}
                   </TableRow>
                 ))}

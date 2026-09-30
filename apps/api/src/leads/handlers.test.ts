@@ -195,3 +195,60 @@ it.effect("searches name, company and email, treating wildcards literally", () =
     expect(yield* search("100%")).toEqual(["100% Fit"])
   }).pipe(Effect.scoped),
 )
+
+const decodeStatuses = Schema.decodeUnknownSync(
+  Schema.Array(Schema.Struct({ name: Schema.String, status: Schema.String })),
+)
+
+const createDealFor = (send: Send, cookie: string, leadId: string, status: string) =>
+  send(
+    new Request("http://localhost/deals", {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie },
+      body: JSON.stringify({ title: `Deal ${status}`, leadId, valueCents: 100_000, status }),
+    }),
+  ).pipe(Effect.tap((response) => Effect.sync(() => expect(response.status).toBe(201))))
+
+it.effect("derives the lead status from its deals", () =>
+  Effect.gen(function* () {
+    const { send, sql } = yield* makeTestApi
+    const cookie = yield* loginAs(send, anaEmail, sellerPassword)
+    const idOf = (response: Response) =>
+      Effect.map(
+        jsonOf(response),
+        (body) => Schema.decodeUnknownSync(Schema.Struct({ id: Schema.String }))(body).id,
+      )
+    yield* createLead(send, cookie, { name: "Sem negócio" })
+    const open = yield* idOf(yield* createLead(send, cookie, { name: "Aberto" }))
+    const won = yield* idOf(yield* createLead(send, cookie, { name: "Ganho" }))
+    const lost = yield* idOf(yield* createLead(send, cookie, { name: "Perdido" }))
+    yield* createDealFor(send, cookie, open, "NEW")
+    yield* createDealFor(send, cookie, open, "PROPOSAL_SENT")
+    yield* createDealFor(send, cookie, open, "CONTACTED")
+    const openLeadWonDeal = yield* idOf(yield* createDealFor(send, cookie, open, "NEW"))
+    yield* createDealFor(send, cookie, won, "NEW")
+    yield* createDealFor(send, cookie, won, "NEW")
+    yield* createDealFor(send, cookie, lost, "NEW")
+    yield* sql`UPDATE deals SET status = 'LOST' WHERE lead_id IN (${won}, ${lost})`
+    yield* sql`UPDATE deals SET status = 'WON' WHERE id = ${openLeadWonDeal}`
+    yield* sql`UPDATE deals SET status = 'WON' WHERE id = (SELECT id FROM deals WHERE lead_id = ${won} LIMIT 1)`
+
+    const statusByName = Object.fromEntries(
+      decodeStatuses(yield* jsonOf(yield* listLeads(send, cookie))).map((lead) => [
+        lead.name,
+        lead.status,
+      ]),
+    )
+    expect(statusByName).toEqual({
+      "Sem negócio": "NEW",
+      Aberto: "PROPOSAL_SENT",
+      Ganho: "WON",
+      Perdido: "LOST",
+    })
+    expect(namesOf(yield* jsonOf(yield* listLeads(send, cookie, "?status=NEW")))).toEqual([
+      "Sem negócio",
+    ])
+    expect(namesOf(yield* jsonOf(yield* listLeads(send, cookie, "?status=WON")))).toEqual(["Ganho"])
+    expect((yield* listLeads(send, cookie, "?status=OPEN")).status).toBe(400)
+  }).pipe(Effect.scoped),
+)

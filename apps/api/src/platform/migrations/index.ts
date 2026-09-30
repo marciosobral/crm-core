@@ -5,6 +5,7 @@ import createSessions from "./0002_create_sessions.ts"
 import seedSellers from "./0003_seed_sellers.ts"
 import addUserRoles from "./0004_add_user_roles.ts"
 import createLeads from "./0005_create_leads.ts"
+import createDeals from "./0006_create_deals.ts"
 
 const loader = Migrator.fromRecord({
   "0001_create_users": createUsers,
@@ -12,6 +13,7 @@ const loader = Migrator.fromRecord({
   "0003_seed_sellers": seedSellers,
   "0004_add_user_roles": addUserRoles,
   "0005_create_leads": createLeads,
+  "0006_create_deals": createDeals,
 })
 
 // The generic migrator only needs SqlClient, so the same layer serves Postgres and PGlite

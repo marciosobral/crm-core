@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedDealsIndexRouteImport } from './routes/_authenticated/deals/index'
+import { Route as AuthenticatedDealsNewRouteImport } from './routes/_authenticated/deals/new'
 import { Route as AuthenticatedLeadsIndexRouteImport } from './routes/_authenticated/leads/index'
 import { Route as AuthenticatedLeadsNewRouteImport } from './routes/_authenticated/leads/new'
 
@@ -29,6 +31,16 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedDealsIndexRoute = AuthenticatedDealsIndexRouteImport.update({
+  id: '/deals/',
+  path: '/deals/',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedDealsNewRoute = AuthenticatedDealsNewRouteImport.update({
+  id: '/deals/new',
+  path: '/deals/new',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedLeadsIndexRoute = AuthenticatedLeadsIndexRouteImport.update({
   id: '/leads/',
   path: '/leads/',
@@ -43,13 +55,17 @@ const AuthenticatedLeadsNewRoute = AuthenticatedLeadsNewRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/login': typeof LoginRoute
+  '/deals/new': typeof AuthenticatedDealsNewRoute
   '/leads/new': typeof AuthenticatedLeadsNewRoute
+  '/deals/': typeof AuthenticatedDealsIndexRoute
   '/leads/': typeof AuthenticatedLeadsIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/': typeof AuthenticatedIndexRoute
+  '/deals/new': typeof AuthenticatedDealsNewRoute
   '/leads/new': typeof AuthenticatedLeadsNewRoute
+  '/deals': typeof AuthenticatedDealsIndexRoute
   '/leads': typeof AuthenticatedLeadsIndexRoute
 }
 export interface FileRoutesById {
@@ -57,20 +73,25 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/deals/new': typeof AuthenticatedDealsNewRoute
   '/_authenticated/leads/new': typeof AuthenticatedLeadsNewRoute
+  '/_authenticated/deals/': typeof AuthenticatedDealsIndexRoute
   '/_authenticated/leads/': typeof AuthenticatedLeadsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/leads/new' | '/leads/'
+  fullPaths:
+    '/' | '/login' | '/deals/new' | '/leads/new' | '/deals/' | '/leads/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/' | '/leads/new' | '/leads'
+  to: '/login' | '/' | '/deals/new' | '/leads/new' | '/deals' | '/leads'
   id:
     | '__root__'
     | '/_authenticated'
     | '/login'
     | '/_authenticated/'
+    | '/_authenticated/deals/new'
     | '/_authenticated/leads/new'
+    | '/_authenticated/deals/'
     | '/_authenticated/leads/'
   fileRoutesById: FileRoutesById
 }
@@ -102,6 +123,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/deals/': {
+      id: '/_authenticated/deals/'
+      path: '/deals'
+      fullPath: '/deals/'
+      preLoaderRoute: typeof AuthenticatedDealsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/deals/new': {
+      id: '/_authenticated/deals/new'
+      path: '/deals/new'
+      fullPath: '/deals/new'
+      preLoaderRoute: typeof AuthenticatedDealsNewRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/leads/': {
       id: '/_authenticated/leads/'
       path: '/leads'
@@ -121,13 +156,17 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedDealsNewRoute: typeof AuthenticatedDealsNewRoute
   AuthenticatedLeadsNewRoute: typeof AuthenticatedLeadsNewRoute
+  AuthenticatedDealsIndexRoute: typeof AuthenticatedDealsIndexRoute
   AuthenticatedLeadsIndexRoute: typeof AuthenticatedLeadsIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedDealsNewRoute: AuthenticatedDealsNewRoute,
   AuthenticatedLeadsNewRoute: AuthenticatedLeadsNewRoute,
+  AuthenticatedDealsIndexRoute: AuthenticatedDealsIndexRoute,
   AuthenticatedLeadsIndexRoute: AuthenticatedLeadsIndexRoute,
 }
 

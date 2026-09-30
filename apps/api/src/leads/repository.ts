@@ -1,7 +1,8 @@
-import { Lead, LeadSource, Seller } from "@crm/contract"
+import { DealStatus, Lead, LeadSource, Seller } from "@crm/contract"
 import { Context, Effect, Layer, Option, Schema } from "effect"
 import { SqlClient, type SqlError, SqlSchema } from "effect/unstable/sql"
 import { dieOnSchemaError } from "../platform/schema-defects.ts"
+import { escapeLikePattern } from "../platform/sql-like.ts"
 
 const LeadRow = Schema.Struct({
   id: Schema.String,
@@ -15,6 +16,7 @@ const LeadRow = Schema.Struct({
   createdAt: Schema.DateTimeUtcFromDate,
   sellerId: Schema.String,
   sellerName: Schema.String,
+  status: DealStatus,
 })
 
 const toLead = (row: typeof LeadRow.Type) =>
@@ -29,11 +31,13 @@ const toLead = (row: typeof LeadRow.Type) =>
     notes: row.notes,
     createdAt: row.createdAt,
     seller: new Seller({ id: row.sellerId, name: row.sellerName }),
+    status: row.status,
   })
 
 const LeadScope = Schema.Struct({
   sellerId: Schema.optionalKey(Schema.String),
   search: Schema.optionalKey(Schema.String),
+  status: Schema.optionalKey(DealStatus),
 })
 
 const NewLead = Schema.Struct({
@@ -47,8 +51,6 @@ const NewLead = Schema.Struct({
   sellerId: Schema.String,
   createdBy: Schema.String,
 })
-
-const escapeLikePattern = (text: string) => text.replace(/[\\%_]/g, "\\$&")
 
 export class LeadsRepository extends Context.Service<
   LeadsRepository,
@@ -65,10 +67,25 @@ export const LeadsRepositoryLive = Layer.effect(
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
 
+    // A lead has no stored status: it shows its most advanced open deal, else WON if any deal was won, else LOST, and NEW when it has no deals.
     const selectLeads = (condition: ReturnType<typeof sql.and>) => sql`
       SELECT l.id, l.name, l.company, l.email, l.phone, l.job_title AS "jobTitle", l.source, l.notes,
-             l.created_at AS "createdAt", u.id AS "sellerId", u.name AS "sellerName"
-      FROM leads l JOIN users u ON u.id = l.seller_id
+             l.created_at AS "createdAt", u.id AS "sellerId", u.name AS "sellerName", ds.status
+      FROM leads l
+      JOIN users u ON u.id = l.seller_id
+      LEFT JOIN LATERAL (
+        SELECT CASE
+          WHEN count(*) = 0 THEN 'NEW'
+          WHEN bool_or(d.status NOT IN ('WON', 'LOST')) THEN
+            (ARRAY['NEW', 'CONTACTED', 'PROPOSAL_SENT', 'NEGOTIATION'])[
+              max(array_position(ARRAY['NEW', 'CONTACTED', 'PROPOSAL_SENT', 'NEGOTIATION'], d.status))
+            ]
+          WHEN bool_or(d.status = 'WON') THEN 'WON'
+          ELSE 'LOST'
+        END AS status
+        FROM deals d
+        WHERE d.lead_id = l.id
+      ) ds ON TRUE
       WHERE ${condition}
       ORDER BY l.created_at DESC, l.id
     `
@@ -76,7 +93,7 @@ export const LeadsRepositoryLive = Layer.effect(
     const list = SqlSchema.findAll({
       Request: LeadScope,
       Result: LeadRow,
-      execute: ({ sellerId, search }) => {
+      execute: ({ sellerId, search, status }) => {
         const conditions = [sql`TRUE`]
         if (sellerId !== undefined) conditions.push(sql`l.seller_id = ${sellerId}`)
         if (search !== undefined) {
@@ -85,6 +102,7 @@ export const LeadsRepositoryLive = Layer.effect(
             sql`(l.name ILIKE ${pattern} OR l.company ILIKE ${pattern} OR l.email ILIKE ${pattern})`,
           )
         }
+        if (status !== undefined) conditions.push(sql`ds.status = ${status}`)
         return selectLeads(sql.and(conditions))
       },
     })

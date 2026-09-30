@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* font-display: block keeps the logo invisible until its font loads, so it never flashes a fallback face. */
+/* The logo faces (Big Shoulders Display, Geist Mono) use font-display: block so the logo never flashes a fallback face. */
 @font-face {
   font-family: "Big Shoulders Display";
   font-style: normal;
@@ -108,6 +108,10 @@
   --color-brand-hover: #e63b19;
   --color-warning: #f6c126;
   --color-warning-surface: #362d0c;
+  --color-status-new: #53bcf6;
+  --color-status-open: #f6c126;
+  --color-status-won: #7df24c;
+  --color-status-lost: #f87171;
 }
 
 body {

@@ -1,10 +1,16 @@
 import { Link } from "@tanstack/react-router"
-import { Users } from "lucide-react"
+import { Briefcase, Users } from "lucide-react"
+
+const navItems = [
+  { to: "/leads", label: "Leads", Icon: Users },
+  { to: "/deals", label: "Negócios", Icon: Briefcase },
+] as const
 
 export function SidebarNav({ onNavigate }: { onNavigate: () => void }) {
-  return (
+  return navItems.map(({ to, label, Icon }) => (
     <Link
-      to="/leads"
+      key={to}
+      to={to}
       onClick={onNavigate}
       className="flex h-[42px] items-center gap-3 rounded-lg border px-4 text-sm leading-none"
       activeProps={{
@@ -14,8 +20,8 @@ export function SidebarNav({ onNavigate }: { onNavigate: () => void }) {
         className: "border-transparent font-medium text-muted hover:bg-line hover:text-zinc-100",
       }}
     >
-      <Users className="size-[18px]" aria-hidden="true" />
-      Leads
+      <Icon className="size-[18px]" aria-hidden="true" />
+      {label}
     </Link>
-  )
+  ))
 }

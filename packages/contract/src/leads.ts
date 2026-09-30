@@ -1,6 +1,7 @@
 import { Schema } from "effect"
 import { HttpApiEndpoint, HttpApiError, HttpApiGroup, HttpApiSchema } from "effect/unstable/httpapi"
 import { Authorization } from "./auth.ts"
+import { DealStatus } from "./deals.ts"
 import { Seller } from "./sellers.ts"
 
 export const LeadSource = Schema.Literals([
@@ -24,6 +25,7 @@ export class Lead extends Schema.Class<Lead>("Lead")({
   source: LeadSource,
   notes: Schema.NullOr(Schema.String),
   seller: Seller,
+  status: DealStatus,
   createdAt: Schema.DateTimeUtcFromString,
 }) {}
 
@@ -46,6 +48,7 @@ export type CreateLeadPayload = typeof CreateLeadPayload.Type
 export const ListLeadsQuery = Schema.Struct({
   search: Schema.optionalKey(trimmedText(100)),
   sellerId: Schema.optionalKey(Schema.String.check(Schema.isUUID())),
+  status: Schema.optionalKey(DealStatus),
 })
 
 export class InvalidLeadSeller extends Schema.TaggedError<InvalidLeadSeller>()(

@@ -1,0 +1,237 @@
+import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
+import { autoScrollForElements } from "@atlaskit/pragmatic-drag-and-drop-auto-scroll/element"
+import { Deal, hasPermission, OpenDealStatus } from "@crm/contract"
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query"
+import { createFileRoute, Link, redirect } from "@tanstack/react-router"
+import { Option, Schema } from "effect"
+import { Plus } from "lucide-react"
+import { useEffect, useEffectEvent, useState } from "react"
+import { BoardColumn, type MoveFocusRequest } from "../../../components/deals/board-column.tsx"
+import { boardColumns } from "../../../components/deals/board-columns.ts"
+import { FiltersBar } from "../../../components/layout/filters-bar.tsx"
+import { SellerFilter } from "../../../components/layout/seller-filter.tsx"
+import { TopBar } from "../../../components/layout/top-bar.tsx"
+import { Button, variantClasses } from "../../../components/ui/button.tsx"
+import { SearchInput } from "../../../components/ui/search-input.tsx"
+import { runApi } from "../../../lib/api-client.ts"
+import { meQueryOptions } from "../../../lib/auth.ts"
+import { cn } from "../../../lib/cn.ts"
+import { dealsQueryKey, dealsQueryOptions } from "../../../lib/deals.ts"
+import { dealStatusLabels } from "../../../lib/labels.ts"
+import { isVisibleSellerId, leadsQueryKey, sellersQueryOptions } from "../../../lib/leads.ts"
+import { useUrlSearch } from "../../../lib/use-url-search.ts"
+
+export const Route = createFileRoute("/_authenticated/deals/")({
+  validateSearch: (search: Record<string, unknown>): { search?: string; sellerId?: string } => ({
+    ...(typeof search.search === "string" ? { search: search.search } : {}),
+    ...(typeof search.sellerId === "string" ? { sellerId: search.sellerId } : {}),
+  }),
+  // Drops a sellerId the UI cannot show (no permission or unknown seller) so the select always matches the applied filter.
+  beforeLoad: async ({ context, search }) => {
+    const { sellerId, ...rest } = search
+    if (sellerId === undefined) return
+    if (!(await isVisibleSellerId(context.queryClient, sellerId, "deal.see_all")))
+      throw redirect({ to: "/deals", search: rest, replace: true })
+  },
+  // Search params are not loader deps: the list query lives in the component so filtering keeps the page mounted.
+  loader: async ({ context }) => {
+    const user = await context.queryClient.ensureQueryData(meQueryOptions)
+    if (hasPermission(user, "deal.see_all"))
+      await context.queryClient.ensureQueryData(sellersQueryOptions)
+  },
+  component: DealBoard,
+})
+
+// Below lg the target columns are off-screen, so dragging near the edge must scroll the board.
+const registerAutoScroll = (element: HTMLDivElement) => autoScrollForElements({ element })
+
+const dealCountLabel = (count: number) => {
+  if (count === 0) return "Nenhum negócio encontrado"
+  return count === 1 ? "1 negócio encontrado" : `${count} negócios encontrados`
+}
+
+function DealBoard() {
+  const search = Route.useSearch()
+  const navigate = Route.useNavigate()
+  const { data: user } = useSuspenseQuery(meQueryOptions)
+  const dealsQuery = useQuery({ ...dealsQueryOptions(search), placeholderData: keepPreviousData })
+  const { searchText, onSearchTextChange } = useUrlSearch(
+    search.search,
+    (value) =>
+      void navigate({
+        search: ({ search: _previous, ...rest }) => (value ? { ...rest, search: value } : rest),
+        replace: true,
+      }),
+  )
+  const queryClient = useQueryClient()
+  const [moveError, setMoveError] = useState<string | undefined>(undefined)
+  const [announcement, setAnnouncement] = useState("")
+  // Moving from the menu remounts the card in its new column (or back, on rollback), which drops focus; the moved card's button takes it back.
+  const [focusRequest, setFocusRequest] = useState<MoveFocusRequest | undefined>(undefined)
+  const listQueryKey = dealsQueryOptions(search).queryKey
+
+  const canSeeAll = hasPermission(user, "deal.see_all")
+  const canCreate = hasPermission(user, "deal.create")
+  const canMove = hasPermission(user, "deal.move")
+  const deals = dealsQuery.data
+
+  const moveMutation = useMutation({
+    mutationFn: ({
+      deal,
+      status,
+    }: {
+      deal: Deal
+      status: OpenDealStatus
+      shouldRefocus?: boolean
+    }) => runApi((client) => client.deals.move({ params: { id: deal.id }, payload: { status } })),
+    onMutate: async ({ deal, status, shouldRefocus }) => {
+      setMoveError(undefined)
+      await queryClient.cancelQueries({ queryKey: listQueryKey })
+      const previous = queryClient.getQueryData(listQueryKey)
+      queryClient.setQueryData(listQueryKey, (current) =>
+        current?.map((item) => (item.id === deal.id ? new Deal({ ...item, status }) : item)),
+      )
+      if (shouldRefocus) setFocusRequest({ dealId: deal.id, status })
+      return { previous }
+    },
+    onError: (_error, { deal, shouldRefocus }, context) => {
+      if (context?.previous) queryClient.setQueryData(listQueryKey, context.previous)
+      if (shouldRefocus) setFocusRequest({ dealId: deal.id, status: deal.status })
+      setMoveError(`Não foi possível mover "${deal.title}". Tente novamente.`)
+    },
+    onSuccess: (_deal, { deal, status }) => {
+      setMoveError(undefined)
+      setAnnouncement(`Negócio "${deal.title}" movido para ${dealStatusLabels[status]}.`)
+    },
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: [dealsQueryKey] }),
+        queryClient.invalidateQueries({ queryKey: [leadsQueryKey] }),
+      ]),
+  })
+
+  const moveDroppedDeal = useEffectEvent((dealId: unknown, targetStatus: unknown) => {
+    const status = Schema.decodeUnknownOption(OpenDealStatus)(targetStatus)
+    const deal = deals?.find((item) => item.id === dealId)
+    if (Option.isSome(status) && deal && deal.status !== status.value)
+      moveMutation.mutate({ deal, status: status.value })
+  })
+
+  useEffect(
+    () =>
+      monitorForElements({
+        onDrop: ({ source, location }) => {
+          const target = location.current.dropTargets[0]
+          if (target) moveDroppedDeal(source.data.dealId, target.data.status)
+        },
+      }),
+    [],
+  )
+
+  return (
+    <div className="flex h-dvh min-w-0 flex-col">
+      <TopBar title="Negócios">
+        <SearchInput
+          label="Buscar negócios"
+          className="hidden md:block md:w-64 lg:w-80"
+          value={searchText}
+          onChange={onSearchTextChange}
+        />
+        {canCreate && (
+          <Link
+            to="/deals/new"
+            className={cn(
+              variantClasses.primary,
+              "flex size-[38px] items-center justify-center gap-2 p-0 sm:size-auto sm:px-[18px] sm:py-2.5",
+            )}
+          >
+            <Plus className="size-3.5" aria-hidden="true" />
+            <span className="sr-only sm:not-sr-only">Novo Negócio</span>
+          </Link>
+        )}
+      </TopBar>
+
+      <FiltersBar
+        summary={deals && !dealsQuery.isPlaceholderData ? dealCountLabel(deals.length) : ""}
+        search={
+          <SearchInput
+            label="Buscar negócios"
+            className="w-full"
+            value={searchText}
+            onChange={onSearchTextChange}
+          />
+        }
+      >
+        {canSeeAll && (
+          <SellerFilter
+            sellerId={search.sellerId}
+            onChange={(sellerId) =>
+              void navigate({
+                search: ({ sellerId: _previous, ...rest }) =>
+                  sellerId ? { ...rest, sellerId } : rest,
+              })
+            }
+          />
+        )}
+      </FiltersBar>
+
+      <p aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
+      {moveError && (
+        <p
+          role="alert"
+          className="mx-4 mt-4 rounded-md border border-red-400/40 bg-red-400/10 px-3 py-2 text-sm text-red-400 md:mx-8"
+        >
+          {moveError}
+        </p>
+      )}
+
+      {dealsQuery.isError ? (
+        <div className="p-4 md:p-8">
+          <div className="space-y-3 rounded-xl border border-line bg-surface px-4 py-10 text-center">
+            <p role="alert" className="text-sm text-red-400">
+              Não foi possível carregar os negócios.
+            </p>
+            <Button variant="secondary" onClick={() => void dealsQuery.refetch()}>
+              Tentar novamente
+            </Button>
+          </div>
+        </div>
+      ) : !deals ? (
+        <div className="p-4 md:p-8">
+          <div className="rounded-xl border border-line bg-surface px-4 py-10 text-center">
+            <p className="text-sm text-muted">Carregando...</p>
+          </div>
+        </div>
+      ) : (
+        <div
+          ref={registerAutoScroll}
+          className={cn(
+            "flex min-h-0 flex-1 scroll-px-4 snap-x snap-mandatory gap-4 overflow-x-auto p-4 transition-opacity md:scroll-px-8 md:p-8 lg:snap-none",
+            dealsQuery.isPlaceholderData && "opacity-60",
+          )}
+          aria-busy={dealsQuery.isFetching}
+        >
+          {boardColumns.map((column) => (
+            <BoardColumn
+              key={column.status}
+              column={column}
+              deals={deals.filter((deal) => column.statuses.includes(deal.status))}
+              canMove={canMove}
+              focusRequest={focusRequest}
+              onMoveButtonFocused={() => setFocusRequest(undefined)}
+              onMove={(deal, status) => moveMutation.mutate({ deal, status, shouldRefocus: true })}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
