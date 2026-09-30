@@ -8,11 +8,11 @@ import {
 import { Effect, Option, Redacted, Result } from "effect"
 import { HttpEffect, HttpServerResponse } from "effect/unstable/http"
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
+import { failUnavailable } from "../platform/unavailable.ts"
 import { LoginAttempts } from "./login-attempts.ts"
 import { hashPassword, verifyPassword } from "./password.ts"
 import { AuthRepository, toUser } from "./repository.ts"
 import { hashSessionToken, makeSessionToken, sessionMaxAge } from "./session-token.ts"
-import { failUnavailable } from "./unavailable.ts"
 
 export const AuthLive = HttpApiBuilder.group(CrmApi, "auth", (handlers) =>
   Effect.gen(function* () {

@@ -1,6 +1,7 @@
 import { Role, rolePermissions, User } from "@crm/contract"
 import { Context, Effect, Layer, Option, Schema } from "effect"
 import { SqlClient, type SqlError, SqlSchema } from "effect/unstable/sql"
+import { dieOnSchemaError } from "../platform/schema-defects.ts"
 import { sessionMaxAge } from "./session-token.ts"
 
 const UserRow = Schema.Struct({
@@ -22,11 +23,6 @@ export const toUser = (row: typeof UserRow.Type) =>
   })
 
 const NewSession = Schema.Struct({ id: Schema.String, userId: Schema.String })
-
-// A row that does not match its schema means code and migrations disagree: a bug, not a
-// condition callers can handle, so it becomes a defect.
-const dieOnSchemaError = <A, E, R>(effect: Effect.Effect<A, E | Schema.SchemaError, R>) =>
-  Effect.catchTag(effect, "SchemaError", (error) => Effect.die(error))
 
 export class AuthRepository extends Context.Service<
   AuthRepository,

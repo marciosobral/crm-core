@@ -1,9 +1,9 @@
 import { Authorization, CurrentUser } from "@crm/contract"
 import { Effect, Layer, Option, Redacted } from "effect"
 import { HttpApiError } from "effect/unstable/httpapi"
+import { failUnavailable } from "../platform/unavailable.ts"
 import { AuthRepository } from "./repository.ts"
 import { hashSessionToken } from "./session-token.ts"
-import { failUnavailable } from "./unavailable.ts"
 
 export const AuthorizationLive = Layer.effect(
   Authorization,
