@@ -1,3 +1,4 @@
+import { Role } from "@crm/contract"
 import { expect, it } from "@effect/vitest"
 import { Effect, Redacted, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql"
@@ -8,14 +9,21 @@ it.effect("creates the tables and seeds the sellers with hashed passwords", () =
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     const users = yield* sql`
-      SELECT email, password_hash AS "passwordHash" FROM users ORDER BY email
+      SELECT email, role, password_hash AS "passwordHash" FROM users ORDER BY email
     `.pipe(
       Effect.flatMap(
         Schema.decodeUnknownEffect(
-          Schema.Array(Schema.Struct({ email: Schema.String, passwordHash: Schema.String })),
+          Schema.Array(
+            Schema.Struct({ email: Schema.String, role: Role, passwordHash: Schema.String }),
+          ),
         ),
       ),
     )
+    expect(users.map(({ email, role }) => [email, role])).toEqual([
+      ["ana.souza@crm-core.dev", "SELLER"],
+      ["bruno.lima@crm-core.dev", "SELLER"],
+      ["demo@crm-core.dev", "SUPERVISOR"],
+    ])
     expect(users.map(({ email }) => email)).toEqual([
       "ana.souza@crm-core.dev",
       "bruno.lima@crm-core.dev",

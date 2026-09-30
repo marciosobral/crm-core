@@ -27,7 +27,7 @@ Open decisions: session storage (database table or signed token), roles (sellers
 
 ## 2. Leads
 
-- [ ] Roles (supervisor, seller) mapped to permissions; permissions checked by the API and exposed to the web
+- [x] Roles (supervisor, seller) mapped to permissions; permissions checked by the API and exposed to the web
 - [ ] `leads` table and migration
 - [ ] Contract: create and list leads, with validation errors; list sellers
 - [ ] Sellers see only their own leads; supervisors see all and assign the responsible seller

@@ -204,3 +204,30 @@ it.effect("admits exactly five of ten parallel wrong-password logins", () =>
     expect(statuses.filter((status) => status === 429)).toHaveLength(5)
   }).pipe(Effect.scoped),
 )
+
+it.effect("returns the role and permissions of the current user", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    const accounts = [
+      {
+        email: "demo@crm-core.dev",
+        password: demoPassword,
+        expected: {
+          role: "SUPERVISOR",
+          permissions: ["lead.create", "lead.see_all", "lead.assign_any"],
+        },
+      },
+      {
+        email: "ana.souza@crm-core.dev",
+        password: "seller-test-password",
+        expected: { role: "SELLER", permissions: ["lead.create"] },
+      },
+    ]
+    for (const { email, password, expected } of accounts) {
+      const login = yield* send(loginRequest(email, password))
+      expect(yield* Effect.promise(() => login.json())).toMatchObject(expected)
+      const me = yield* send(meRequest(sessionCookieOf(login)))
+      expect(yield* Effect.promise(() => me.json())).toMatchObject(expected)
+    }
+  }).pipe(Effect.scoped),
+)

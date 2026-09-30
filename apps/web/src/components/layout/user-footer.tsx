@@ -1,8 +1,10 @@
+import type { Role } from "@crm/contract"
 import { LogOut } from "lucide-react"
+import { roleLabels } from "../../lib/labels.ts"
 import { Button } from "../ui/button.tsx"
 
 type UserFooterProps = {
-  user: { name: string; email: string }
+  user: { name: string; role: Role }
   onLogout: () => void
   isLoggingOut: boolean
 }
@@ -22,7 +24,7 @@ export function UserFooter({ user, onLogout, isLoggingOut }: UserFooterProps) {
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{user.name}</p>
-        <p className="truncate text-xs text-zinc-400">{user.email}</p>
+        <p className="truncate text-xs text-zinc-400">{roleLabels[user.role]}</p>
       </div>
       <Button
         variant="icon"

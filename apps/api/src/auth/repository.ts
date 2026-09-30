@@ -1,14 +1,25 @@
-import { User } from "@crm/contract"
-import { Context, Effect, Layer, type Option, Schema } from "effect"
+import { Role, rolePermissions, User } from "@crm/contract"
+import { Context, Effect, Layer, Option, Schema } from "effect"
 import { SqlClient, type SqlError, SqlSchema } from "effect/unstable/sql"
 import { sessionMaxAge } from "./session-token.ts"
 
-const UserWithPassword = Schema.Struct({
+const UserRow = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
   email: Schema.String,
-  passwordHash: Schema.String,
+  role: Role,
 })
+
+const UserWithPassword = Schema.Struct({ ...UserRow.fields, passwordHash: Schema.String })
+
+export const toUser = (row: typeof UserRow.Type) =>
+  new User({
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    role: row.role,
+    permissions: rolePermissions[row.role],
+  })
 
 const NewSession = Schema.Struct({ id: Schema.String, userId: Schema.String })
 
@@ -43,16 +54,16 @@ export const AuthRepositoryLive = Layer.effect(
       Request: Schema.String,
       Result: UserWithPassword,
       execute: (email) => sql`
-        SELECT id, name, email, password_hash AS "passwordHash"
+        SELECT id, name, email, role, password_hash AS "passwordHash"
         FROM users WHERE lower(email) = lower(${email})
       `,
     })
 
     const findUserBySession = SqlSchema.findOneOption({
       Request: Schema.String,
-      Result: User,
+      Result: UserRow,
       execute: (sessionId) => sql`
-        SELECT u.id, u.name, u.email
+        SELECT u.id, u.name, u.email, u.role
         FROM sessions s JOIN users u ON u.id = s.user_id
         WHERE s.id = ${sessionId} AND s.expires_at > now()
       `,
@@ -79,7 +90,8 @@ export const AuthRepositoryLive = Layer.effect(
 
     return {
       findUserByEmail: (email) => findUserByEmail(email).pipe(dieOnSchemaError),
-      findUserBySession: (sessionId) => findUserBySession(sessionId).pipe(dieOnSchemaError),
+      findUserBySession: (sessionId) =>
+        findUserBySession(sessionId).pipe(dieOnSchemaError, Effect.map(Option.map(toUser))),
       deleteExpiredSessions: (userId) => deleteExpiredSessions(userId).pipe(dieOnSchemaError),
       createSession: (session) => createSession(session).pipe(dieOnSchemaError),
       deleteSession: (sessionId) => deleteSession(sessionId).pipe(dieOnSchemaError),

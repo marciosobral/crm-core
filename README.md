@@ -74,18 +74,20 @@ pnpm dev
 | api | `PORT` | HTTP port (default `3001`) |
 | api | `CORS_ORIGIN` | web origin allowed by CORS and for unsafe requests (exact match, no trailing slash) (default `http://localhost:5173`) |
 | api | `NODE_ENV` | `development`, `test` or `production` (any other value fails startup); `production` refuses the example seed passwords (default `development`; the Dockerfile sets `production`) |
-| api | `SEED_DEMO_PASSWORD` | password of the seeded demo seller (min. 12 characters, applied once by the seed migration) |
-| api | `SEED_SELLER_PASSWORD` | password of the other seeded sellers (same rules) |
+| api | `SEED_DEMO_PASSWORD` | password of the seeded demo account (supervisor) (min. 12 characters, applied once by the seed migration) |
+| api | `SEED_SELLER_PASSWORD` | password of the other seeded accounts (the sellers) (same rules) |
 | web | `VITE_API_URL` | API base URL |
 
 ## Demo accounts
 
-The seed migration creates three fictional sellers. Their passwords come from `SEED_DEMO_PASSWORD` and `SEED_SELLER_PASSWORD`, never from the code. With `NODE_ENV=production` (set by the API Dockerfile), the seed refuses the public example passwords from `.env.example`.
+The seed migration creates three fictional accounts (one supervisor, two sellers). Their passwords come from `SEED_DEMO_PASSWORD` and `SEED_SELLER_PASSWORD`, never from the code. With `NODE_ENV=production` (set by the API Dockerfile), the seed refuses the public example passwords from `.env.example`.
 
-| Account | Local password (`apps/api/.env.example`) |
-|---|---|
-| `demo@crm-core.dev` | `demo-crm-1234` |
-| `ana.souza@crm-core.dev`, `bruno.lima@crm-core.dev` | `seller-crm-1234` |
+| Account | Role | Local password (`apps/api/.env.example`) |
+|---|---|---|
+| `demo@crm-core.dev` | Supervisor | `demo-crm-1234` |
+| `ana.souza@crm-core.dev`, `bruno.lima@crm-core.dev` | Seller | `seller-crm-1234` |
+
+Supervisors see every lead and choose its responsible seller; sellers see and create only their own leads.
 
 The deployed app is not public: its passwords are set on Render and shared on request.
 
