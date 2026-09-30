@@ -100,3 +100,12 @@ The deployed app is not public: its passwords are set on Render and shared on re
 The web app is served from `crm-core.marciosobral.com` and the API from `crm-core-api.marciosobral.com`. Since both are on the same site, session cookies work without relying on third-party cookies.
 
 Render's free instance sleeps after 15 minutes without traffic, so **the first request after that can take about a minute**.
+
+Deploys run from the `deploy` job in `.github/workflows/ci.yml` on every push to `main`, after `check` passes. When `apps/api`, `packages/contract` or the workspace manifests changed since the commit Render has live (or that commit cannot be determined), it deploys the API on Render and waits until it is live; then it deploys the web app with Wrangler. The web app never reaches users before the API it calls. Required GitHub settings:
+
+| Name | Kind | Value |
+|---|---|---|
+| `RENDER_API_KEY` | Secret | Render API key |
+| `RENDER_SERVICE_ID` | Variable | ID of `crm-core-api` (`srv-...`) |
+| `CLOUDFLARE_API_TOKEN` | Secret | Token with the "Edit Cloudflare Workers" template |
+| `CLOUDFLARE_ACCOUNT_ID` | Variable | Cloudflare account ID |
