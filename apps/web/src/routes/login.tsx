@@ -1,3 +1,4 @@
+import { TooManyLoginAttempts } from "@crm/contract"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router"
 import { type FormEvent, useState } from "react"
@@ -81,9 +82,11 @@ function Login() {
 
         {loginMutation.isError && (
           <p role="alert" className="text-sm text-red-400">
-            {isInvalidCredentials(loginMutation.error)
-              ? "E-mail ou senha inválidos."
-              : "Não foi possível entrar. Tente novamente."}
+            {loginMutation.error instanceof TooManyLoginAttempts
+              ? `Muitas tentativas. Tente novamente em ${Math.ceil(loginMutation.error.retryAfterSeconds / 60)} minuto(s).`
+              : isInvalidCredentials(loginMutation.error)
+                ? "E-mail ou senha inválidos."
+                : "Não foi possível entrar. Tente novamente."}
           </p>
         )}
 

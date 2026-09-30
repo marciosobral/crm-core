@@ -5,6 +5,7 @@ import { ByteSize, Effect, Layer } from "effect"
 import { HttpEffect, HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { AuthLive } from "../auth/handlers.ts"
+import { LoginAttemptsLive } from "../auth/login-attempts.ts"
 import { AuthorizationLive } from "../auth/middleware.ts"
 import { HealthLive } from "../health/handlers.ts"
 import { ServerConfig } from "./config.ts"
@@ -65,7 +66,13 @@ const CrossOriginGuard = HttpRouter.middleware(
 )
 
 export const ApiRoutes = HttpApiBuilder.layer(CrmApi).pipe(
-  Layer.provide([HealthLive, AuthLive, SecurityHeaders, BodySizeLimit, CrossOriginGuard]),
+  Layer.provide([
+    HealthLive,
+    AuthLive.pipe(Layer.provide(LoginAttemptsLive)),
+    SecurityHeaders,
+    BodySizeLimit,
+    CrossOriginGuard,
+  ]),
   Layer.provide(AuthorizationLive),
 )
 

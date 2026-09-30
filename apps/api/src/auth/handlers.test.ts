@@ -1,5 +1,6 @@
+import { TooManyLoginAttempts } from "@crm/contract"
 import { expect, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { demoPassword } from "../testing/database.ts"
 import { makeTestApi } from "../testing/http.ts"
 
@@ -129,5 +130,72 @@ it.effect("deletes only the logging-in user's expired sessions", () =>
     expect(demo).toHaveLength(1)
     expect(demo[0]?.expired).toBe(false)
     expect(demo[0]?.id).not.toBe(expiredIds[0]?.id)
+  }).pipe(Effect.scoped),
+)
+
+const attemptLogins = (
+  send: (request: Request) => Effect.Effect<Response>,
+  email: string,
+  password: string,
+  count: number,
+) => Effect.forEach(Array.from({ length: count }), () => send(loginRequest(email, password)))
+
+it.effect("blocks the sixth login with 429 and Retry-After, even with the right password", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    for (const response of yield* attemptLogins(send, "demo@crm-core.dev", "wrong-password", 5))
+      expect(response.status).toBe(401)
+    const blocked = yield* send(loginRequest("demo@crm-core.dev", demoPassword))
+    expect(blocked.status).toBe(429)
+    const body = yield* Effect.promise(() => blocked.json())
+    expect(body).toMatchObject({ _tag: "TooManyLoginAttempts" })
+    const { retryAfterSeconds } = Schema.decodeUnknownSync(TooManyLoginAttempts)(body)
+    expect(retryAfterSeconds).toBeGreaterThanOrEqual(1)
+    expect(retryAfterSeconds).toBeLessThanOrEqual(900)
+    expect(blocked.headers.get("retry-after")).toBe(String(retryAfterSeconds))
+    expect(blocked.headers.get("set-cookie")).toBeNull()
+  }).pipe(Effect.scoped),
+)
+
+it.effect("clears the failure count after a successful login", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    yield* attemptLogins(send, "demo@crm-core.dev", "wrong-password", 4)
+    expect((yield* send(loginRequest("demo@crm-core.dev", demoPassword))).status).toBe(200)
+    for (const response of yield* attemptLogins(send, "demo@crm-core.dev", "wrong-password", 5))
+      expect(response.status).toBe(401)
+    expect((yield* send(loginRequest("demo@crm-core.dev", "wrong-password"))).status).toBe(429)
+  }).pipe(Effect.scoped),
+)
+
+it.effect("limits unknown emails like known ones", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    for (const response of yield* attemptLogins(send, "nobody@crm-core.dev", demoPassword, 5))
+      expect(response.status).toBe(401)
+    expect((yield* send(loginRequest("nobody@crm-core.dev", demoPassword))).status).toBe(429)
+  }).pipe(Effect.scoped),
+)
+
+it.effect("limits each account independently", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    yield* attemptLogins(send, "demo@crm-core.dev", "wrong-password", 5)
+    expect((yield* send(loginRequest("demo@crm-core.dev", "wrong-password"))).status).toBe(429)
+    expect((yield* send(loginRequest("ana.souza@crm-core.dev", "wrong-password"))).status).toBe(401)
+  }).pipe(Effect.scoped),
+)
+
+it.effect("admits exactly five of ten parallel wrong-password logins", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    const responses = yield* Effect.forEach(
+      Array.from({ length: 10 }),
+      () => send(loginRequest("demo@crm-core.dev", "wrong-password")),
+      { concurrency: "unbounded" },
+    )
+    const statuses = responses.map((response) => response.status)
+    expect(statuses.filter((status) => status === 401)).toHaveLength(5)
+    expect(statuses.filter((status) => status === 429)).toHaveLength(5)
   }).pipe(Effect.scoped),
 )

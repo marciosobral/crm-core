@@ -24,6 +24,12 @@ export class InvalidCredentials extends Schema.TaggedError<InvalidCredentials>()
   { httpApiStatus: 401 },
 ) {}
 
+export class TooManyLoginAttempts extends Schema.TaggedError<TooManyLoginAttempts>()(
+  "TooManyLoginAttempts",
+  { retryAfterSeconds: Schema.Int },
+  { httpApiStatus: 429 },
+) {}
+
 export class CurrentUser extends Context.Service<CurrentUser, User>()("crm/CurrentUser") {}
 
 export const sessionCookie = HttpApiSecurity.apiKey({ in: "cookie", key: "__Host-crm_session" })
@@ -41,7 +47,7 @@ export class AuthGroup extends HttpApiGroup.make("auth")
     HttpApiEndpoint.post("login", "/auth/login", {
       payload: LoginPayload,
       success: User,
-      error: [InvalidCredentials, HttpApiError.ServiceUnavailable],
+      error: [InvalidCredentials, TooManyLoginAttempts, HttpApiError.ServiceUnavailable],
     }),
   )
   .add(HttpApiEndpoint.get("me", "/auth/me", { success: User }).middleware(Authorization))
