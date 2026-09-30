@@ -1,22 +1,28 @@
-import { hasPermission } from "@crm/contract"
+import { DealStatus, hasPermission } from "@crm/contract"
 import { keepPreviousData, useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
+import { Option, Schema } from "effect"
 import { Plus, Search } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { FiltersBar } from "../../../components/layout/filters-bar.tsx"
 import { TopBar } from "../../../components/layout/top-bar.tsx"
 import { variantClasses } from "../../../components/ui/button.tsx"
 import { FilterSelect } from "../../../components/ui/filter-select.tsx"
+import { StatusBadge } from "../../../components/ui/status-badge.tsx"
 import { Table, TableCell, TableHead, TableRow } from "../../../components/ui/table.tsx"
 import { meQueryOptions } from "../../../lib/auth.ts"
 import { cn } from "../../../lib/cn.ts"
+import { dealStatusLabels } from "../../../lib/labels.ts"
 import { leadsQueryOptions, sellersQueryOptions } from "../../../lib/leads.ts"
 import { formatPhone } from "../../../lib/phone.ts"
 
 export const Route = createFileRoute("/_authenticated/leads/")({
-  validateSearch: (search: Record<string, unknown>): { search?: string; sellerId?: string } => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { search?: string; sellerId?: string; status?: DealStatus } => ({
     ...(typeof search.search === "string" ? { search: search.search } : {}),
     ...(typeof search.sellerId === "string" ? { sellerId: search.sellerId } : {}),
+    ...(Schema.is(DealStatus)(search.status) ? { status: search.status } : {}),
   }),
   // Search params are not loader deps: the list query lives in the component so filtering keeps the page mounted.
   // Drops a sellerId the UI cannot show (no permission or unknown seller) so the select always matches the applied filter.
@@ -103,7 +109,7 @@ function LeadList() {
 
   const canSeeAll = hasPermission(user, "lead.see_all")
   const canCreate = hasPermission(user, "lead.create")
-  const hasFilters = Boolean(search.search || search.sellerId)
+  const hasFilters = Boolean(search.search || search.sellerId || search.status)
   const leads = leadsQuery.data
 
   // Only URL changes that did not come from typing (sidebar link, back/forward) overwrite the input.
@@ -165,6 +171,25 @@ function LeadList() {
             }
           />
         )}
+        <FilterSelect
+          label="Status"
+          value={search.status ?? ""}
+          options={[
+            { value: "", label: "Todos" },
+            ...DealStatus.literals.map((status) => ({
+              value: status,
+              label: dealStatusLabels[status],
+            })),
+          ]}
+          onChange={(value) =>
+            void navigate({
+              search: ({ status: _previous, ...rest }) => {
+                const status = Schema.decodeUnknownOption(DealStatus)(value)
+                return Option.isSome(status) ? { ...rest, status: status.value } : rest
+              },
+            })
+          }
+        />
       </FiltersBar>
 
       <section className="p-4 md:p-8">
@@ -199,6 +224,7 @@ function LeadList() {
                   <TableHead>Empresa</TableHead>
                   <TableHead>E-mail</TableHead>
                   <TableHead>Telefone</TableHead>
+                  <TableHead>Status</TableHead>
                   {canSeeAll && <TableHead>Vendedor</TableHead>}
                 </TableRow>
               </thead>
@@ -209,6 +235,9 @@ function LeadList() {
                     <TableCell isSecondary>{lead.company}</TableCell>
                     <TableCell isSecondary>{lead.email}</TableCell>
                     <TableCell isSecondary>{formatPhone(lead.phone)}</TableCell>
+                    <TableCell>
+                      <StatusBadge status={lead.status} />
+                    </TableCell>
                     {canSeeAll && <TableCell>{lead.seller.name}</TableCell>}
                   </TableRow>
                 ))}

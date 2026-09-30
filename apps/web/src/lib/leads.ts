@@ -1,9 +1,14 @@
+import type { DealStatus } from "@crm/contract"
 import { queryOptions } from "@tanstack/react-query"
 import { runApi } from "./api-client.ts"
 
 export const leadsQueryKey = "leads"
 
-export const leadsQueryOptions = (query: { search?: string; sellerId?: string }) =>
+export const leadsQueryOptions = (query: {
+  search?: string
+  sellerId?: string
+  status?: DealStatus
+}) =>
   queryOptions({
     queryKey: [leadsQueryKey, query],
     queryFn: () => runApi((client) => client.leads.list({ query })),

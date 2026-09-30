@@ -108,6 +108,10 @@
   --color-brand-hover: #e63b19;
   --color-warning: #f6c126;
   --color-warning-surface: #362d0c;
+  --color-status-new: #53bcf6;
+  --color-status-open: #f6c126;
+  --color-status-won: #7df24c;
+  --color-status-lost: #f87171;
 }
 
 body {
