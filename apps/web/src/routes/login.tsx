@@ -49,7 +49,7 @@ function Login() {
         className="w-full max-w-sm space-y-6 rounded-2xl border border-line bg-surface p-8 shadow-2xl"
       >
         <div className="space-y-3 text-center">
-          <Logo />
+          <Logo size="lg" />
           <p className="text-sm text-zinc-400">Entre na sua conta corporativa para continuar</p>
         </div>
 
