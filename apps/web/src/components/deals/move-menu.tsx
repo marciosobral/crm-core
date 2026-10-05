@@ -79,7 +79,7 @@ export function MoveMenu({
         aria-expanded={isOpen}
         aria-controls={listId}
         onClick={() => setIsOpen((current) => !current)}
-        className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted hover:bg-line hover:text-white focus-visible:outline-2 focus-visible:outline-brand"
+        className="flex size-7 items-center justify-center rounded-md text-muted hover:bg-line hover:text-white focus-visible:outline-2 focus-visible:outline-brand"
       >
         <ArrowRightLeft aria-hidden="true" className="size-3.5" />
       </button>
@@ -112,7 +112,7 @@ export function MoveMenu({
                   setIsOpen(false)
                   onMove(status)
                 }}
-                className="w-full cursor-pointer px-3 py-1.5 text-left text-sm text-white hover:bg-line focus-visible:bg-line focus-visible:outline-none"
+                className="w-full px-3 py-1.5 text-left text-sm text-white hover:bg-line focus-visible:bg-line focus-visible:outline-none"
               >
                 {dealStatusLabels[status]}
               </button>
@@ -130,7 +130,7 @@ export function MoveMenu({
                   setIsOpen(false)
                   onCloseRequest("WON")
                 }}
-                className="w-full cursor-pointer px-3 py-1.5 text-left text-sm text-status-won hover:bg-line focus-visible:bg-line focus-visible:outline-none"
+                className="w-full px-3 py-1.5 text-left text-sm text-status-won hover:bg-line focus-visible:bg-line focus-visible:outline-none"
               >
                 Marcar como ganho
               </button>
@@ -142,7 +142,7 @@ export function MoveMenu({
                   setIsOpen(false)
                   onCloseRequest("LOST")
                 }}
-                className="w-full cursor-pointer px-3 py-1.5 text-left text-sm text-status-lost hover:bg-line focus-visible:bg-line focus-visible:outline-none"
+                className="w-full px-3 py-1.5 text-left text-sm text-status-lost hover:bg-line focus-visible:bg-line focus-visible:outline-none"
               >
                 Marcar como perdido
               </button>
