@@ -1,20 +1,19 @@
 import { Schema } from "effect"
 import { HttpApiEndpoint, HttpApiError, HttpApiGroup, HttpApiSchema } from "effect/unstable/httpapi"
 import { Authorization } from "./auth.ts"
+import { DealStatus, OpenDealStatus } from "./deal-status.ts"
+import { Lead } from "./leads.ts"
 import { Seller } from "./sellers.ts"
 
-export const DealStatus = Schema.Literals([
-  "NEW",
-  "CONTACTED",
-  "PROPOSAL_SENT",
-  "NEGOTIATION",
-  "WON",
-  "LOST",
+export const LostReason = Schema.Literals([
+  "PRICE",
+  "COMPETITOR",
+  "NO_BUDGET",
+  "NO_RESPONSE",
+  "GAVE_UP",
+  "OTHER",
 ])
-export type DealStatus = typeof DealStatus.Type
-
-export const OpenDealStatus = Schema.Literals(["NEW", "CONTACTED", "PROPOSAL_SENT", "NEGOTIATION"])
-export type OpenDealStatus = typeof OpenDealStatus.Type
+export type LostReason = typeof LostReason.Type
 
 export class DealLead extends Schema.Class<DealLead>("DealLead")({
   id: Schema.String,
@@ -32,6 +31,9 @@ export class Deal extends Schema.Class<Deal>("Deal")({
   lead: DealLead,
   seller: Seller,
   createdAt: Schema.DateTimeUtcFromString,
+  lostReason: Schema.NullOr(LostReason),
+  lostNote: Schema.NullOr(Schema.String),
+  closedAt: Schema.NullOr(Schema.DateTimeUtcFromString),
 }) {}
 
 const isCalendarDate = (text: string) => {
@@ -42,6 +44,7 @@ const isCalendarDate = (text: string) => {
 export const CreateDealPayload = Schema.Struct({
   title: Schema.Trim.check(Schema.isNonEmpty(), Schema.isMaxLength(120)),
   leadId: Schema.String.check(Schema.isUUID()),
+  sellerId: Schema.optionalKey(Schema.String.check(Schema.isUUID())),
   valueCents: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 99_999_999_999 })),
   status: OpenDealStatus,
   expectedCloseDate: Schema.optionalKey(
@@ -58,8 +61,36 @@ export const ListDealsQuery = Schema.Struct({
 
 export const MoveDealPayload = Schema.Struct({ status: OpenDealStatus })
 
+const lostNote = Schema.Trim.check(Schema.isMaxLength(500))
+
+export const CloseDealPayload = Schema.Union([
+  Schema.Struct({ result: Schema.Literal("WON") }),
+  Schema.Struct({
+    result: Schema.Literal("LOST"),
+    reason: LostReason,
+    note: Schema.optionalKey(lostNote),
+  }).check(
+    Schema.makeFilter(
+      ({ reason, note }) => reason !== "OTHER" || (note !== undefined && note !== ""),
+      { title: "note is required when the reason is OTHER" },
+    ),
+  ),
+])
+export type CloseDealPayload = typeof CloseDealPayload.Type
+
+export class DealDetails extends Schema.Class<DealDetails>("DealDetails")({
+  deal: Deal,
+  lead: Lead,
+}) {}
+
 export class InvalidDealLead extends Schema.TaggedError<InvalidDealLead>()(
   "InvalidDealLead",
+  {},
+  { httpApiStatus: 422 },
+) {}
+
+export class InvalidDealSeller extends Schema.TaggedError<InvalidDealSeller>()(
+  "InvalidDealSeller",
   {},
   { httpApiStatus: 422 },
 ) {}
@@ -82,13 +113,38 @@ export class DealsGroup extends HttpApiGroup.make("deals")
     HttpApiEndpoint.post("create", "/deals", {
       payload: CreateDealPayload,
       success: Deal.pipe(HttpApiSchema.status(201)),
-      error: [HttpApiError.Forbidden, InvalidDealLead, HttpApiError.ServiceUnavailable],
+      error: [
+        HttpApiError.Forbidden,
+        InvalidDealLead,
+        InvalidDealSeller,
+        HttpApiError.ServiceUnavailable,
+      ],
+    }).middleware(Authorization),
+  )
+  .add(
+    HttpApiEndpoint.get("get", "/deals/:id", {
+      params: { id: Schema.String.check(Schema.isUUID()) },
+      success: DealDetails,
+      error: [HttpApiError.NotFound, HttpApiError.ServiceUnavailable],
     }).middleware(Authorization),
   )
   .add(
     HttpApiEndpoint.patch("move", "/deals/:id/status", {
       params: { id: Schema.String.check(Schema.isUUID()) },
       payload: MoveDealPayload,
+      success: Deal,
+      error: [
+        HttpApiError.Forbidden,
+        HttpApiError.NotFound,
+        DealClosed,
+        HttpApiError.ServiceUnavailable,
+      ],
+    }).middleware(Authorization),
+  )
+  .add(
+    HttpApiEndpoint.post("close", "/deals/:id/close", {
+      params: { id: Schema.String.check(Schema.isUUID()) },
+      payload: CloseDealPayload,
       success: Deal,
       error: [
         HttpApiError.Forbidden,

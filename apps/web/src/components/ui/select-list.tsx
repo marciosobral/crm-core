@@ -28,7 +28,7 @@ export function SelectList({ list, label, className }: SelectListProps) {
           id={list.listId}
           role="listbox"
           aria-label={label}
-          className="max-h-64 overflow-y-auto py-1"
+          className="max-h-64 overflow-y-auto"
         >
           {list.options.map((option, index) => (
             // biome-ignore lint/a11y/useKeyWithClickEvents: the keyboard drives options from the trigger through aria-activedescendant.
@@ -74,7 +74,7 @@ export function ChevronToggle({ isOpen, onToggle, className }: ChevronToggleProp
       aria-label={isOpen ? "Fechar lista" : "Abrir lista"}
       onMouseDown={(event) => event.preventDefault()}
       onClick={onToggle}
-      className={cn("absolute top-1/2 flex -translate-y-1/2 cursor-pointer text-muted", className)}
+      className={cn("absolute top-1/2 flex -translate-y-1/2 text-muted", className)}
     >
       <ChevronDown aria-hidden="true" className="size-3.5" />
     </button>

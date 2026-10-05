@@ -1,5 +1,6 @@
 import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import { type Deal, OpenDealStatus } from "@crm/contract"
+import { Link } from "@tanstack/react-router"
 import { Option, Schema } from "effect"
 import { useEffect, useRef, useState } from "react"
 import { cn } from "../../lib/cn.ts"
@@ -18,17 +19,25 @@ const initialsOf = (name: string) =>
 type DealCardProps = {
   deal: Deal
   canMove: boolean
+  canClose: boolean
+  isSelected: boolean
+  onOpen: () => void
   shouldFocusMoveButton: boolean
   onMoveButtonFocused: () => void
   onMove: (status: OpenDealStatus) => void
+  onCloseRequest: (mode: "WON" | "LOST") => void
 }
 
 export function DealCard({
   deal,
   canMove,
+  canClose,
+  isSelected,
+  onOpen,
   shouldFocusMoveButton,
   onMoveButtonFocused,
   onMove,
+  onCloseRequest,
 }: DealCardProps) {
   const ref = useRef<HTMLElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -50,14 +59,34 @@ export function DealCard({
     <article
       ref={ref}
       className={cn(
-        "relative space-y-2.5 rounded-lg border border-line bg-surface p-3.5",
+        "relative space-y-2.5 rounded-lg border bg-surface p-3.5",
+        isSelected ? "border-brand" : "border-line",
         isMovable && "cursor-grab active:cursor-grabbing",
         isDragging && "opacity-40",
       )}
     >
       <div className="flex items-start justify-between gap-2">
         <h3 className="min-w-0 truncate text-sm font-bold text-white" title={deal.title}>
-          {deal.title}
+          <Link
+            to="/deals/$dealId"
+            params={{ dealId: deal.id }}
+            draggable={false}
+            ref={(link) => {
+              // A closed card has no move button, so its title link is the only element that can take the focus request.
+              if (!shouldFocusMoveButton || Option.isSome(openStatus) || !link) return
+              link.focus()
+              onMoveButtonFocused()
+            }}
+            className="after:absolute after:inset-0"
+            onClick={(event) => {
+              // From lg up the details open in the board's side panel instead of navigating to the page.
+              if (!window.matchMedia("(min-width: 1024px)").matches) return
+              event.preventDefault()
+              onOpen()
+            }}
+          >
+            {deal.title}
+          </Link>
         </h3>
         {deal.status === "WON" && (
           <span className="shrink-0 text-xs font-semibold text-status-won">Ganho</span>
@@ -68,7 +97,7 @@ export function DealCard({
       </div>
       <p
         className={cn(
-          "font-heading text-lg leading-none font-extrabold",
+          "truncate font-heading text-lg leading-none font-extrabold",
           dealStatusTextClasses[deal.status],
         )}
       >
@@ -76,14 +105,17 @@ export function DealCard({
       </p>
       <div className="flex items-center justify-between gap-2">
         <span className="min-w-0 truncate text-xs text-muted">{deal.lead.name}</span>
-        <span className="flex shrink-0 items-center gap-1">
+        <span className="relative z-10 flex shrink-0 items-center gap-1">
           {isMovable && Option.isSome(openStatus) && (
             <MoveMenu
+              dealId={deal.id}
               dealTitle={deal.title}
               currentStatus={openStatus.value}
+              canClose={canClose}
               shouldFocusButton={shouldFocusMoveButton}
               onButtonFocused={onMoveButtonFocused}
               onMove={onMove}
+              onCloseRequest={onCloseRequest}
             />
           )}
           <span

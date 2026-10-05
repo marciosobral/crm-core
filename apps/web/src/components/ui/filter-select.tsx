@@ -58,7 +58,7 @@ export function FilterSelect({
             {...triggerProps}
             type="button"
             aria-label={label}
-            className="flex size-full cursor-pointer items-center gap-1 pr-8 pl-3.5 text-left outline-none"
+            className="flex size-full items-center gap-1 pr-8 pl-3.5 text-left outline-none"
           >
             {label}: {select.selectedText}
           </button>

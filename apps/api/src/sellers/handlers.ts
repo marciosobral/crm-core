@@ -11,9 +11,9 @@ export const SellersLive = HttpApiBuilder.group(CrmApi, "sellers", (handlers) =>
     return handlers.handle("list", () =>
       Effect.gen(function* () {
         const user = yield* CurrentUser
-        const canListSellers = (["lead.see_all", "lead.assign_any", "deal.see_all"] as const).some(
-          (permission) => hasPermission(user, permission),
-        )
+        const canListSellers = (
+          ["lead.see_all", "lead.assign_any", "deal.see_all", "deal.assign_any"] as const
+        ).some((permission) => hasPermission(user, permission))
         if (!canListSellers) return yield* new HttpApiError.Forbidden()
         return yield* sellers.list()
       }).pipe(Effect.catchTag("SqlError", failUnavailable)),

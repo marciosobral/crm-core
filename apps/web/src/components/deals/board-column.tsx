@@ -1,5 +1,6 @@
 import { dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
-import type { Deal, DealStatus, OpenDealStatus } from "@crm/contract"
+import { type Deal, type DealStatus, OpenDealStatus } from "@crm/contract"
+import { Schema } from "effect"
 import { useEffect, useRef, useState } from "react"
 import { cn } from "../../lib/cn.ts"
 import { dealStatusBadgeClasses, dealStatusDotClasses, dealStatusLabels } from "../../lib/labels.ts"
@@ -12,18 +13,26 @@ type BoardColumnProps = {
   column: BoardColumnConfig
   deals: ReadonlyArray<Deal>
   canMove: boolean
+  canClose: boolean
+  selectedDealId: string | undefined
+  onOpenDeal: (deal: Deal) => void
   focusRequest: MoveFocusRequest | undefined
   onMoveButtonFocused: () => void
   onMove: (deal: Deal, status: OpenDealStatus) => void
+  onCloseRequest: (deal: Deal, mode: "WON" | "LOST") => void
 }
 
 export function BoardColumn({
   column,
   deals,
   canMove,
+  canClose,
+  selectedDealId,
+  onOpenDeal,
   focusRequest,
   onMoveButtonFocused,
   onMove,
+  onCloseRequest,
 }: BoardColumnProps) {
   const ref = useRef<HTMLElement>(null)
   const [isOver, setIsOver] = useState(false)
@@ -31,27 +40,30 @@ export function BoardColumn({
 
   useEffect(() => {
     const element = ref.current
-    if (!element || dropStatus === undefined) return
+    if (!element || (dropStatus === undefined && !canClose)) return
     return dropTargetForElements({
       element,
-      getData: () => ({ status: dropStatus }),
-      canDrop: ({ source }) => source.data.status !== dropStatus,
+      getData: () => (dropStatus === undefined ? { closing: true } : { status: dropStatus }),
+      canDrop: ({ source }) =>
+        dropStatus === undefined
+          ? Schema.is(OpenDealStatus)(source.data.status)
+          : source.data.status !== dropStatus,
       onDragEnter: () => setIsOver(true),
       onDragLeave: () => setIsOver(false),
       onDrop: () => setIsOver(false),
     })
-  }, [dropStatus])
+  }, [dropStatus, canClose])
 
   return (
     <section
       ref={ref}
       aria-labelledby={`column-${column.status}`}
-      className="flex w-[272px] shrink-0 snap-start flex-col lg:w-auto lg:min-w-0 lg:flex-1"
+      className="flex w-[272px] shrink-0 snap-start flex-col lg:w-auto lg:min-w-[180px] lg:flex-1"
     >
       <header className="mx-[9px] mb-3 flex items-center justify-between gap-2 border-b border-line pb-3">
         <h2
           id={`column-${column.status}`}
-          className="flex items-center gap-2 text-sm font-bold text-white"
+          className="flex items-center gap-2 text-sm font-bold whitespace-nowrap text-white"
         >
           <span
             aria-hidden="true"
@@ -79,11 +91,15 @@ export function BoardColumn({
             <DealCard
               deal={deal}
               canMove={canMove}
+              canClose={canClose}
+              isSelected={selectedDealId === deal.id}
+              onOpen={() => onOpenDeal(deal)}
               shouldFocusMoveButton={
                 focusRequest?.dealId === deal.id && focusRequest.status === deal.status
               }
               onMoveButtonFocused={onMoveButtonFocused}
               onMove={(status) => onMove(deal, status)}
+              onCloseRequest={(mode) => onCloseRequest(deal, mode)}
             />
           </li>
         ))}

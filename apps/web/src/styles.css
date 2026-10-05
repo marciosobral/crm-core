@@ -114,6 +114,13 @@
   --color-status-lost: #f87171;
 }
 
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+}
+
 body {
   @apply bg-canvas text-zinc-100 antialiased;
 }

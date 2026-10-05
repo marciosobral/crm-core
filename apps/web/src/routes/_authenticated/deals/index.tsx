@@ -14,6 +14,8 @@ import { Plus } from "lucide-react"
 import { useEffect, useEffectEvent, useState } from "react"
 import { BoardColumn, type MoveFocusRequest } from "../../../components/deals/board-column.tsx"
 import { boardColumns } from "../../../components/deals/board-columns.ts"
+import { CloseDealDialog } from "../../../components/deals/close-deal-dialog.tsx"
+import { DealPanel } from "../../../components/deals/deal-panel.tsx"
 import { FiltersBar } from "../../../components/layout/filters-bar.tsx"
 import { SellerFilter } from "../../../components/layout/seller-filter.tsx"
 import { TopBar } from "../../../components/layout/top-bar.tsx"
@@ -28,9 +30,12 @@ import { isVisibleSellerId, leadsQueryKey, sellersQueryOptions } from "../../../
 import { useUrlSearch } from "../../../lib/use-url-search.ts"
 
 export const Route = createFileRoute("/_authenticated/deals/")({
-  validateSearch: (search: Record<string, unknown>): { search?: string; sellerId?: string } => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { search?: string; sellerId?: string; dealId?: string } => ({
     ...(typeof search.search === "string" ? { search: search.search } : {}),
     ...(typeof search.sellerId === "string" ? { sellerId: search.sellerId } : {}),
+    ...(typeof search.dealId === "string" ? { dealId: search.dealId } : {}),
   }),
   // Drops a sellerId the UI cannot show (no permission or unknown seller) so the select always matches the applied filter.
   beforeLoad: async ({ context, search }) => {
@@ -58,9 +63,10 @@ const dealCountLabel = (count: number) => {
 
 function DealBoard() {
   const search = Route.useSearch()
+  const { dealId: selectedDealId, ...filters } = search
   const navigate = Route.useNavigate()
   const { data: user } = useSuspenseQuery(meQueryOptions)
-  const dealsQuery = useQuery({ ...dealsQueryOptions(search), placeholderData: keepPreviousData })
+  const dealsQuery = useQuery({ ...dealsQueryOptions(filters), placeholderData: keepPreviousData })
   const { searchText, onSearchTextChange } = useUrlSearch(
     search.search,
     (value) =>
@@ -74,11 +80,15 @@ function DealBoard() {
   const [announcement, setAnnouncement] = useState("")
   // Moving from the menu remounts the card in its new column (or back, on rollback), which drops focus; the moved card's button takes it back.
   const [focusRequest, setFocusRequest] = useState<MoveFocusRequest | undefined>(undefined)
-  const listQueryKey = dealsQueryOptions(search).queryKey
+  const [closing, setClosing] = useState<
+    { deal: Deal; mode: "choose" | "WON" | "LOST" } | undefined
+  >(undefined)
+  const listQueryKey = dealsQueryOptions(filters).queryKey
 
   const canSeeAll = hasPermission(user, "deal.see_all")
   const canCreate = hasPermission(user, "deal.create")
   const canMove = hasPermission(user, "deal.move")
+  const canClose = hasPermission(user, "deal.close")
   const deals = dealsQuery.data
 
   const moveMutation = useMutation({
@@ -123,19 +133,26 @@ function DealBoard() {
       moveMutation.mutate({ deal, status: status.value })
   })
 
+  const closeDroppedDeal = useEffectEvent((dealId: unknown) => {
+    const deal = deals?.find((item) => item.id === dealId)
+    if (deal) setClosing({ deal, mode: "choose" })
+  })
+
   useEffect(
     () =>
       monitorForElements({
         onDrop: ({ source, location }) => {
           const target = location.current.dropTargets[0]
-          if (target) moveDroppedDeal(source.data.dealId, target.data.status)
+          if (!target) return
+          if (target.data.closing === true) closeDroppedDeal(source.data.dealId)
+          else moveDroppedDeal(source.data.dealId, target.data.status)
         },
       }),
     [],
   )
 
   return (
-    <div className="flex h-dvh min-w-0 flex-col">
+    <div className="relative flex h-dvh min-w-0 flex-col">
       <TopBar title="Negócios">
         <SearchInput
           label="Buscar negócios"
@@ -211,26 +228,64 @@ function DealBoard() {
           </div>
         </div>
       ) : (
-        <div
-          ref={registerAutoScroll}
-          className={cn(
-            "flex min-h-0 flex-1 scroll-px-4 snap-x snap-mandatory gap-4 overflow-x-auto p-4 transition-opacity md:scroll-px-8 md:p-8 lg:snap-none",
-            dealsQuery.isPlaceholderData && "opacity-60",
-          )}
-          aria-busy={dealsQuery.isFetching}
-        >
-          {boardColumns.map((column) => (
-            <BoardColumn
-              key={column.status}
-              column={column}
-              deals={deals.filter((deal) => column.statuses.includes(deal.status))}
-              canMove={canMove}
-              focusRequest={focusRequest}
-              onMoveButtonFocused={() => setFocusRequest(undefined)}
-              onMove={(deal, status) => moveMutation.mutate({ deal, status, shouldRefocus: true })}
+        <div className="flex min-h-0 flex-1">
+          <div
+            ref={registerAutoScroll}
+            className={cn(
+              "min-w-0 flex-1 flex scroll-px-4 snap-x snap-mandatory gap-4 overflow-x-auto p-4 transition-opacity md:scroll-px-8 md:p-8 lg:snap-none",
+              dealsQuery.isPlaceholderData && "opacity-60",
+            )}
+            aria-busy={dealsQuery.isFetching}
+          >
+            {boardColumns.map((column) => (
+              <BoardColumn
+                key={column.status}
+                column={column}
+                deals={deals.filter((deal) => column.statuses.includes(deal.status))}
+                canMove={canMove}
+                canClose={canClose}
+                selectedDealId={selectedDealId}
+                onOpenDeal={(deal) =>
+                  void navigate({ search: (previous) => ({ ...previous, dealId: deal.id }) })
+                }
+                focusRequest={focusRequest}
+                onMoveButtonFocused={() => setFocusRequest(undefined)}
+                onMove={(deal, status) =>
+                  moveMutation.mutate({ deal, status, shouldRefocus: true })
+                }
+                onCloseRequest={(deal, mode) => setClosing({ deal, mode })}
+              />
+            ))}
+          </div>
+          {selectedDealId && (
+            <DealPanel
+              key={selectedDealId}
+              dealId={selectedDealId}
+              onDismiss={() => void navigate({ search: ({ dealId: _dealId, ...rest }) => rest })}
             />
-          ))}
+          )}
         </div>
+      )}
+      {closing && (
+        <CloseDealDialog
+          key={closing.deal.id}
+          deal={closing.deal}
+          initialMode={closing.mode}
+          onDismiss={() => {
+            setFocusRequest({ dealId: closing.deal.id, status: closing.deal.status })
+            setClosing(undefined)
+          }}
+          onClosed={(closedDeal) => {
+            queryClient.setQueryData(listQueryKey, (current) =>
+              current?.map((item) => (item.id === closedDeal.id ? closedDeal : item)),
+            )
+            setClosing(undefined)
+            setAnnouncement(
+              `Negócio "${closedDeal.title}" marcado como ${closedDeal.status === "WON" ? "ganho" : "perdido"}.`,
+            )
+            setFocusRequest({ dealId: closedDeal.id, status: closedDeal.status })
+          }}
+        />
       )}
     </div>
   )

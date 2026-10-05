@@ -19,7 +19,7 @@ A seller is the logged-in user; every deal will belong to one.
 - [x] Contract: login, logout and current-user endpoints with typed errors
 - [x] Session in an `HttpOnly`, `Secure`, `SameSite=Lax` cookie; CORS with credentials
 - [x] Auth middleware protecting every non-public endpoint
-- [x] Web: base layout and login screen (Figma), protected routes, logout
+- [x] Web: base layout and login screen (design), protected routes, logout
 - [x] Tests: login success and failure, protected endpoint without a session
 - [x] README: local demo credentials; production credentials shared on request
 
@@ -31,7 +31,7 @@ Open decisions: session storage (database table or signed token), roles (sellers
 - [x] `leads` table and migration
 - [x] Contract: create and list leads, with validation errors; list sellers
 - [x] Sellers see only their own leads; supervisors see all and assign the responsible seller
-- [x] Web: lead list (search, seller filter) and create lead screens (Figma)
+- [x] Web: lead list (search, seller filter) and create lead screens (design)
 - [x] Tests: create, list, validation failure, permissions
 
 Open decisions: lead fields (name, email, phone, company, source), whether leads are shared or owned by a seller.
@@ -40,21 +40,21 @@ Open decisions: lead fields (name, email, phone, company, source), whether leads
 
 - [x] `deals` table linked to a lead and a seller, with a status
 - [x] Contract: create deal, list deals by status, change status
-- [x] Web: create deal screen (Figma), kanban board with one column per status
+- [x] Web: create deal screen (design), kanban board with one column per status
 - [x] Move deals between columns (drag and drop, with a non-drag fallback)
 - [x] Lead status derived from its deals (no deal: "Novo"), with a column and filter in the lead list
 - [x] Tests: create, invalid lead, status transitions
 
-Decisions: statuses Novo, Contato Feito, Proposta Enviada, Negociação (open, free movement) and Ganho, Perdido (closed, set in step 4); the Fechado column groups won and lost deals. Fields: title, linked lead, value (cents), responsible seller (always the lead's seller), initial status, expected close date, description.
+Decisions: statuses Novo, Contato Feito, Proposta Enviada, Negociação (open, free movement) and Ganho, Perdido (closed, set in step 4); the Fechado column groups won and lost deals. Fields: title, linked lead, value (cents), responsible seller (prefilled with the lead's seller, supervisors may change it), initial status, expected close date, description.
 
 ## 4. Closing deals and details
 
-- [ ] Contract: mark a deal as won or lost (closing is explicit and final)
-- [ ] Web: deal details screen (Figma)
-- [ ] From the kanban card: open details, mark as won or lost
-- [ ] Tests: close as won, close as lost, reject changes to a closed deal
+- [x] Contract: mark a deal as won or lost (closing is explicit and final)
+- [x] Web: deal details screen (design)
+- [x] From the kanban card: open details, mark as won or lost
+- [x] Tests: close as won, close as lost, reject changes to a closed deal
 
-Open decisions: loss reason, whether a closed deal can be reopened.
+Decisions: a loss needs a reason from a closed set (price, competitor, no budget, no response, gave up, other) with an optional detail, required for "other"; closing is final, with no reopening; details open in a board side panel and on a full page; deals close from the details, the card menu or a drop on the Fechado column.
 
 ## 5. Comments
 
@@ -96,3 +96,4 @@ Not planned; revisit only if needed.
 - Manual ordering of deals inside a board column (newest first)
 - Pagination or virtualization of the board columns
 - Demo deals in the seed
+- Reopening a closed deal

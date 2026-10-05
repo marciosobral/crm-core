@@ -58,6 +58,7 @@ export class LeadsRepository extends Context.Service<
     readonly list: (
       scope: typeof LeadScope.Type,
     ) => Effect.Effect<ReadonlyArray<Lead>, SqlError.SqlError>
+    readonly findById: (id: string) => Effect.Effect<Option.Option<Lead>, SqlError.SqlError>
     readonly create: (lead: typeof NewLead.Type) => Effect.Effect<Lead, SqlError.SqlError>
   }
 >()("crm/LeadsRepository") {}
@@ -107,7 +108,7 @@ export const LeadsRepositoryLive = Layer.effect(
       },
     })
 
-    const findById = SqlSchema.findOneOption({
+    const findLeadRow = SqlSchema.findOneOption({
       Request: Schema.String,
       Result: LeadRow,
       execute: (id) => selectLeads(sql.and([sql`l.id = ${id}`])),
@@ -130,10 +131,11 @@ export const LeadsRepositoryLive = Layer.effect(
           dieOnSchemaError,
           Effect.map((rows) => rows.map(toLead)),
         ),
+      findById: (id) => findLeadRow(id).pipe(dieOnSchemaError, Effect.map(Option.map(toLead))),
       create: (lead) =>
         Effect.gen(function* () {
           const { id } = yield* insert(lead)
-          const row = yield* findById(id)
+          const row = yield* findLeadRow(id)
           if (Option.isNone(row)) return yield* Effect.die(new Error("Inserted lead not found"))
           return toLead(row.value)
         }).pipe(

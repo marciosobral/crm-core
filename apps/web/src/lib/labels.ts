@@ -1,4 +1,4 @@
-import type { DealStatus, LeadSource, Role } from "@crm/contract"
+import type { DealStatus, LeadSource, LostReason, Role } from "@crm/contract"
 
 export const roleLabels: Record<Role, string> = {
   SUPERVISOR: "Supervisor",
@@ -22,6 +22,15 @@ export const dealStatusLabels: Record<DealStatus, string> = {
   NEGOTIATION: "Negociação",
   WON: "Ganho",
   LOST: "Perdido",
+}
+
+export const lostReasonLabels: Record<LostReason, string> = {
+  PRICE: "Preço",
+  COMPETITOR: "Concorrente",
+  NO_BUDGET: "Sem orçamento",
+  NO_RESPONSE: "Sem resposta",
+  GAVE_UP: "Desistiu",
+  OTHER: "Outro",
 }
 
 export const dealStatusTextClasses: Record<DealStatus, string> = {

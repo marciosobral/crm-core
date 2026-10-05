@@ -39,3 +39,28 @@ it.effect("creates the tables and seeds the sellers with hashed passwords", () =
     expect(sessions[0].count).toBe(0)
   }).pipe(Effect.provide(TestDatabase)),
 )
+
+const decodeIdRow = Schema.decodeUnknownEffect(Schema.Tuple([Schema.Struct({ id: Schema.String })]))
+
+it.effect("rejects a closed deal that has no loss reason", () =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    const [seller] = yield* sql`SELECT id FROM users WHERE email = 'ana.souza@crm-core.dev'`.pipe(
+      Effect.flatMap(decodeIdRow),
+    )
+    const [lead] = yield* sql`
+      INSERT INTO leads (name, company, email, phone, source, seller_id, created_by)
+      VALUES ('Thiago Lima', 'Academia X', 'thiago@academiax.com.br', '11983111234', 'REFERRAL', ${seller.id}, ${seller.id})
+      RETURNING id
+    `.pipe(Effect.flatMap(decodeIdRow))
+    const [deal] = yield* sql`
+      INSERT INTO deals (title, value_cents, status, lead_id, seller_id, created_by)
+      VALUES ('Kit Completo', 100, 'NEW', ${lead.id}, ${seller.id}, ${seller.id})
+      RETURNING id
+    `.pipe(Effect.flatMap(decodeIdRow))
+    const error = yield* sql`UPDATE deals SET status = 'LOST' WHERE id = ${deal.id}`.pipe(
+      Effect.flip,
+    )
+    expect(error._tag).toBe("SqlError")
+  }).pipe(Effect.provide(TestDatabase)),
+)

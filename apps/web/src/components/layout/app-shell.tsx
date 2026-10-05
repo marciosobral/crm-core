@@ -1,3 +1,4 @@
+import { X } from "lucide-react"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import { cn } from "../../lib/cn.ts"
 import { Logo } from "../ui/logo.tsx"
@@ -60,8 +61,16 @@ export function AppShell({ footer, children }: AppShellProps) {
         >
           <div className="flex flex-col">
             {/* Same height as the top bar, so the first nav item lines up with the filters bar. */}
-            <div className="flex h-16 items-center md:h-[78px]">
+            <div className="flex h-16 items-center justify-between md:h-[78px]">
               <Logo />
+              <button
+                type="button"
+                aria-label="Fechar menu"
+                className="text-muted hover:text-white lg:hidden"
+                onClick={closeNav}
+              >
+                <X className="size-5" aria-hidden="true" />
+              </button>
             </div>
             <nav className="flex flex-col gap-2 pt-2.5 md:pt-3" aria-label="Navegação principal">
               <SidebarNav onNavigate={closeNav} />

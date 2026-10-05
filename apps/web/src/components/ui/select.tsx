@@ -75,7 +75,7 @@ export function Select({
             <button
               {...triggerProps}
               type="button"
-              className={cn(controlClasses, "cursor-pointer truncate pr-9 text-left")}
+              className={cn(controlClasses, "truncate pr-9 text-left")}
             >
               {select.selectedText || <span className="text-placeholder">{placeholder}</span>}
             </button>
