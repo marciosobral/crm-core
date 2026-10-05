@@ -2,8 +2,8 @@ import { NodeHttpServer } from "@effect/platform-node"
 import { expect, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 import { HttpClient, HttpClientRequest, HttpRouter } from "effect/unstable/http"
-import { demoPassword, TestDatabase } from "../testing/database.ts"
-import { makeTestApi } from "../testing/http.ts"
+import { demoPassword, TestDatabase } from "#src/testing/database.ts"
+import { makeTestApi } from "#src/testing/http.ts"
 import { ApiRoutes } from "./server.ts"
 
 const ServerTestLayer = HttpRouter.serve(ApiRoutes, { disableLogger: true }).pipe(

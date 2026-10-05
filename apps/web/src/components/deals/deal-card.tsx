@@ -3,9 +3,9 @@ import { type Deal, OpenDealStatus } from "@crm/contract"
 import { Link } from "@tanstack/react-router"
 import { Option, Schema } from "effect"
 import { useEffect, useRef, useState } from "react"
-import { cn } from "../../lib/cn.ts"
-import { formatDealValue } from "../../lib/currency.ts"
-import { dealStatusTextClasses } from "../../lib/labels.ts"
+import { cn } from "#src/lib/cn.ts"
+import { formatDealValue } from "#src/lib/currency.ts"
+import { dealStatusTextClasses } from "#src/lib/labels.ts"
 import { MoveMenu } from "./move-menu.tsx"
 
 const initialsOf = (name: string) =>

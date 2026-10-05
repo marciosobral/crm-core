@@ -1,8 +1,8 @@
 import { TooManyLoginAttempts } from "@crm/contract"
 import { expect, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
-import { demoPassword } from "../testing/database.ts"
-import { makeTestApi } from "../testing/http.ts"
+import { demoPassword } from "#src/testing/database.ts"
+import { makeTestApi } from "#src/testing/http.ts"
 
 const loginRequest = (email: string, password: string) =>
   new Request("http://localhost/auth/login", {

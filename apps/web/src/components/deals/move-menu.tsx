@@ -2,8 +2,8 @@ import { OpenDealStatus } from "@crm/contract"
 import { Link } from "@tanstack/react-router"
 import { ArrowRightLeft } from "lucide-react"
 import { useEffect, useId, useRef, useState } from "react"
-import { dealStatusLabels } from "../../lib/labels.ts"
-import { useAnchoredPopover } from "../../lib/use-anchored-popover.ts"
+import { dealStatusLabels } from "#src/lib/labels.ts"
+import { useAnchoredPopover } from "#src/lib/use-anchored-popover.ts"
 
 type MoveMenuProps = {
   dealId: string

@@ -1,8 +1,8 @@
 import { expect, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
 import type { SqlClient } from "effect/unstable/sql"
-import { demoPassword } from "../testing/database.ts"
-import { loginAs, makeTestApi } from "../testing/http.ts"
+import { demoPassword } from "#src/testing/database.ts"
+import { loginAs, makeTestApi } from "#src/testing/http.ts"
 
 const sellerPassword = "seller-test-password"
 const demoEmail = "demo@crm-core.dev"

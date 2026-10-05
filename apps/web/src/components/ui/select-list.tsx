@@ -1,6 +1,6 @@
 import { Check, ChevronDown } from "lucide-react"
-import { cn } from "../../lib/cn.ts"
-import type { SelectListState } from "../../lib/use-select.ts"
+import { cn } from "#src/lib/cn.ts"
+import type { SelectListState } from "#src/lib/use-select.ts"
 
 type SelectListProps = {
   list: SelectListState

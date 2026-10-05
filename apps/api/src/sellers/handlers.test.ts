@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest"
 import { Effect } from "effect"
-import { demoPassword } from "../testing/database.ts"
-import { loginAs, makeTestApi } from "../testing/http.ts"
+import { demoPassword } from "#src/testing/database.ts"
+import { loginAs, makeTestApi } from "#src/testing/http.ts"
 
 const listSellers = (cookie: string) =>
   new Request("http://localhost/sellers", { headers: { cookie } })

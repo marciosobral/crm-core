@@ -1,5 +1,5 @@
 import { type ComponentPropsWithoutRef, useId } from "react"
-import { cn } from "../../lib/cn.ts"
+import { cn } from "#src/lib/cn.ts"
 import { controlClasses, Field } from "./field.tsx"
 
 export type TextFieldProps = ComponentPropsWithoutRef<"input"> & {

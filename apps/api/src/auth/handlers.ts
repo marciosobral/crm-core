@@ -8,7 +8,7 @@ import {
 import { Effect, Option, Redacted, Result } from "effect"
 import { HttpEffect, HttpServerResponse } from "effect/unstable/http"
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
-import { failUnavailable } from "../platform/unavailable.ts"
+import { failUnavailable } from "#src/platform/unavailable.ts"
 import { LoginAttempts } from "./login-attempts.ts"
 import { hashPassword, verifyPassword } from "./password.ts"
 import { AuthRepository, toUser } from "./repository.ts"

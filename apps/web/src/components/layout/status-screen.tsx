@@ -1,6 +1,6 @@
 import { useRouter } from "@tanstack/react-router"
 import type { ReactNode } from "react"
-import { Button } from "../ui/button.tsx"
+import { Button } from "#src/components/ui/button.tsx"
 
 type StatusScreenProps = { message: string; action?: ReactNode }
 

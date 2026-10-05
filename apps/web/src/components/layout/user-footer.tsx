@@ -1,7 +1,7 @@
 import type { Role } from "@crm/contract"
 import { LogOut } from "lucide-react"
-import { roleLabels } from "../../lib/labels.ts"
-import { Button } from "../ui/button.tsx"
+import { Button } from "#src/components/ui/button.tsx"
+import { roleLabels } from "#src/lib/labels.ts"
 
 type UserFooterProps = {
   user: { name: string; role: Role }

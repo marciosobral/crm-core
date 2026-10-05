@@ -3,9 +3,9 @@ import { NodeHttpServer } from "@effect/platform-node"
 import { expect, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 import { HttpApiTest } from "effect/unstable/httpapi"
-import { AuthorizationLive } from "../auth/middleware.ts"
-import { AuthRepositoryLive } from "../auth/repository.ts"
-import { TestDatabase } from "../testing/database.ts"
+import { AuthorizationLive } from "#src/auth/middleware.ts"
+import { AuthRepositoryLive } from "#src/auth/repository.ts"
+import { TestDatabase } from "#src/testing/database.ts"
 import { HealthLive } from "./handlers.ts"
 
 const TestLayer = Layer.mergeAll(

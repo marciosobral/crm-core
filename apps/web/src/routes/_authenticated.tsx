@@ -1,10 +1,10 @@
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Outlet, redirect, useRouter } from "@tanstack/react-router"
 import { HttpApiError } from "effect/unstable/httpapi"
-import { AppShell } from "../components/layout/app-shell.tsx"
-import { UserFooter } from "../components/layout/user-footer.tsx"
-import { runApi } from "../lib/api-client.ts"
-import { authQueryKey, meQueryOptions } from "../lib/auth.ts"
+import { AppShell } from "#src/components/layout/app-shell.tsx"
+import { UserFooter } from "#src/components/layout/user-footer.tsx"
+import { runApi } from "#src/lib/api-client.ts"
+import { authQueryKey, meQueryOptions } from "#src/lib/auth.ts"
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: ({ context, location }) =>

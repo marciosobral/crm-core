@@ -3,12 +3,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router"
 import { TriangleAlert } from "lucide-react"
 import { type FormEvent, useEffect, useState } from "react"
-import { Button } from "../components/ui/button.tsx"
-import { Logo } from "../components/ui/logo.tsx"
-import { TextField } from "../components/ui/text-field.tsx"
-import { runApi } from "../lib/api-client.ts"
-import { meQueryOptions } from "../lib/auth.ts"
-import { safeRedirect } from "../lib/safe-redirect.ts"
+import { Button } from "#src/components/ui/button.tsx"
+import { Logo } from "#src/components/ui/logo.tsx"
+import { TextField } from "#src/components/ui/text-field.tsx"
+import { runApi } from "#src/lib/api-client.ts"
+import { meQueryOptions } from "#src/lib/auth.ts"
+import { safeRedirect } from "#src/lib/safe-redirect.ts"
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>): { redirect?: string } =>

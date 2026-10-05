@@ -1,7 +1,7 @@
 import { Seller } from "@crm/contract"
 import { Context, Effect, Layer, Schema } from "effect"
 import { SqlClient, type SqlError, SqlSchema } from "effect/unstable/sql"
-import { dieOnSchemaError } from "../platform/schema-defects.ts"
+import { dieOnSchemaError } from "#src/platform/schema-defects.ts"
 
 const SellerRow = Schema.Struct({ id: Schema.String, name: Schema.String })
 const IsSellerRow = Schema.Struct({ isSeller: Schema.Boolean })

@@ -1,8 +1,8 @@
 import { DealStatus, Lead, LeadSource, Seller } from "@crm/contract"
 import { Context, Effect, Layer, Option, Schema } from "effect"
 import { SqlClient, type SqlError, SqlSchema } from "effect/unstable/sql"
-import { dieOnSchemaError } from "../platform/schema-defects.ts"
-import { escapeLikePattern } from "../platform/sql-like.ts"
+import { dieOnSchemaError } from "#src/platform/schema-defects.ts"
+import { escapeLikePattern } from "#src/platform/sql-like.ts"
 
 const LeadRow = Schema.Struct({
   id: Schema.String,

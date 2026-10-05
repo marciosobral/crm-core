@@ -1,6 +1,6 @@
 import { PgliteClient } from "@effect/sql-pglite"
 import { ConfigProvider, Layer } from "effect"
-import { MigrationsLive } from "../platform/migrations/index.ts"
+import { MigrationsLive } from "#src/platform/migrations/index.ts"
 
 export const demoPassword = "demo-test-password"
 
