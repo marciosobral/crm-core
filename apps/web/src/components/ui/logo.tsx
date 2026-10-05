@@ -1,4 +1,4 @@
-import { cn } from "../../lib/cn.ts"
+import { cn } from "#src/lib/cn.ts"
 
 type LogoSize = "md" | "lg"
 

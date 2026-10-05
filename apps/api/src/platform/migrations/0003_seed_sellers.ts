@@ -1,7 +1,7 @@
 import { Effect } from "effect"
 import { SqlClient } from "effect/unstable/sql"
-import { hashPassword } from "../../auth/password.ts"
-import { SeedConfig } from "../config.ts"
+import { hashPassword } from "#src/auth/password.ts"
+import { SeedConfig } from "#src/platform/config.ts"
 
 export default Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient

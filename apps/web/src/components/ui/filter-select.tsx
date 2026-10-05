@@ -1,6 +1,6 @@
 import { ChevronDown } from "lucide-react"
-import { cn } from "../../lib/cn.ts"
-import { type SelectOption, useSelect } from "../../lib/use-select.ts"
+import { cn } from "#src/lib/cn.ts"
+import { type SelectOption, useSelect } from "#src/lib/use-select.ts"
 import { ChevronToggle, SelectList } from "./select-list.tsx"
 
 type FilterSelectProps = {

@@ -1,6 +1,6 @@
 import { Menu } from "lucide-react"
 import { type ReactNode, useContext } from "react"
-import { Button } from "../ui/button.tsx"
+import { Button } from "#src/components/ui/button.tsx"
 import { NavDrawerContext } from "./nav-drawer-context.ts"
 
 type TopBarProps = { title: string; children?: ReactNode }

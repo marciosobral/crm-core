@@ -1,7 +1,7 @@
 import { X } from "lucide-react"
 import { type ReactNode, useEffect, useRef, useState } from "react"
-import { cn } from "../../lib/cn.ts"
-import { Logo } from "../ui/logo.tsx"
+import { Logo } from "#src/components/ui/logo.tsx"
+import { cn } from "#src/lib/cn.ts"
 import { NavDrawerContext } from "./nav-drawer-context.ts"
 import { SidebarNav } from "./sidebar-nav.tsx"
 

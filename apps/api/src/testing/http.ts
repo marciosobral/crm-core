@@ -2,7 +2,7 @@ import { NodeHttpServer } from "@effect/platform-node"
 import { Context, Effect, Layer } from "effect"
 import { HttpRouter } from "effect/unstable/http"
 import { SqlClient } from "effect/unstable/sql"
-import { ApiRoutes } from "../platform/server.ts"
+import { ApiRoutes } from "#src/platform/server.ts"
 import { TestDatabase } from "./database.ts"
 
 // Raw web requests instead of HttpApiTest: the typed client cannot read or send cookies.

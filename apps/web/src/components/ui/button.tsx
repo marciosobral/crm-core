@@ -1,5 +1,5 @@
 import type { ComponentProps } from "react"
-import { cn } from "../../lib/cn.ts"
+import { cn } from "#src/lib/cn.ts"
 
 type ButtonVariant = "primary" | "secondary" | "icon"
 

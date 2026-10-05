@@ -2,8 +2,8 @@ import { Role } from "@crm/contract"
 import { expect, it } from "@effect/vitest"
 import { Effect, Redacted, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql"
-import { verifyPassword } from "../../auth/password.ts"
-import { demoPassword, TestDatabase } from "../../testing/database.ts"
+import { verifyPassword } from "#src/auth/password.ts"
+import { demoPassword, TestDatabase } from "#src/testing/database.ts"
 
 it.effect("creates the tables and seeds the sellers with hashed passwords", () =>
   Effect.gen(function* () {

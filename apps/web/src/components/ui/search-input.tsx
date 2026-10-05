@@ -1,5 +1,5 @@
 import { Search } from "lucide-react"
-import { cn } from "../../lib/cn.ts"
+import { cn } from "#src/lib/cn.ts"
 
 type SearchInputProps = {
   className: string

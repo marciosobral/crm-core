@@ -1,10 +1,10 @@
 import { CrmApi, CurrentUser, hasPermission, InvalidLeadSeller } from "@crm/contract"
 import { Effect } from "effect"
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
-import { requirePermission } from "../auth/permissions.ts"
-import { nullIfBlank } from "../platform/text.ts"
-import { failUnavailable } from "../platform/unavailable.ts"
-import { SellersRepository } from "../sellers/repository.ts"
+import { requirePermission } from "#src/auth/permissions.ts"
+import { nullIfBlank } from "#src/platform/text.ts"
+import { failUnavailable } from "#src/platform/unavailable.ts"
+import { SellersRepository } from "#src/sellers/repository.ts"
 import { LeadsRepository } from "./repository.ts"
 
 export const LeadsLive = HttpApiBuilder.group(CrmApi, "leads", (handlers) =>

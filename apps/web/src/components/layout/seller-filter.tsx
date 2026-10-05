@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { sellersQueryOptions } from "../../lib/leads.ts"
-import { FilterSelect } from "../ui/filter-select.tsx"
+import { FilterSelect } from "#src/components/ui/filter-select.tsx"
+import { sellersQueryOptions } from "#src/lib/leads.ts"
 
 type SellerFilterProps = {
   sellerId: string | undefined

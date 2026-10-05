@@ -1,8 +1,8 @@
 import type { Deal, Lead } from "@crm/contract"
-import { formatDealValue } from "../../lib/currency.ts"
-import { formatDate } from "../../lib/dates.ts"
-import { lostReasonLabels } from "../../lib/labels.ts"
-import { StatusBadge } from "../ui/status-badge.tsx"
+import { StatusBadge } from "#src/components/ui/status-badge.tsx"
+import { formatDealValue } from "#src/lib/currency.ts"
+import { formatDate } from "#src/lib/dates.ts"
+import { lostReasonLabels } from "#src/lib/labels.ts"
 
 type DealSummaryProps = {
   deal: Deal

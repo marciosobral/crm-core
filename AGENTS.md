@@ -47,6 +47,7 @@ Before calling work done, run lint, typecheck, test and build. All must pass.
 - Layers: `XxxLive` for production implementations, `TestLayer` (or `XxxTest`) in tests.
 - No `any` and no type casts (`as`). Use `unknown` + narrowing, generics or Schema decoding.
 - Relative imports use the `.ts` extension.
+- Imports that would climb a directory use the package's `#src/` subpath alias (`#src/lib/auth.ts`); same-folder imports stay relative (`./x.ts`).
 - Only erasable TypeScript syntax: no `enum`, `namespace` or parameter properties (Node runs the API's `.ts` files by stripping types). For closed sets of values use `Schema.Literals([...])` when the value crosses a boundary (contract, config, database) and a literal union or an `as const` object otherwise (`as const` is a const assertion, not a cast).
 - Biome formats and lints; do not hand-format against it.
 - Minimal, surgical changes. No speculative abstractions or features.
