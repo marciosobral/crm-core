@@ -1,9 +1,9 @@
 import { dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
-import { type Deal, type DealStatus, OpenDealStatus } from "@crm/contract"
+import { type Deal, type DealStatus, dealStatusLabels, OpenDealStatus } from "@crm/contract"
 import { Schema } from "effect"
 import { useEffect, useRef, useState } from "react"
 import { cn } from "#src/lib/cn.ts"
-import { dealStatusBadgeClasses, dealStatusDotClasses, dealStatusLabels } from "#src/lib/labels.ts"
+import { dealStatusBadgeClasses, dealStatusDotClasses } from "#src/lib/labels.ts"
 import type { BoardColumn as BoardColumnConfig } from "./board-columns.ts"
 import { DealCard } from "./deal-card.tsx"
 

@@ -1,4 +1,4 @@
-import type { Deal, DealActivity } from "@crm/contract"
+import { type Deal, type DealActivity, dealStatusLabels, lostReasonLabels } from "@crm/contract"
 import { DateTime } from "effect"
 import type { Prompt } from "effect/unstable/ai"
 
@@ -22,11 +22,11 @@ const describeActivity = (activity: DealActivity) => {
     case "SELLER_ASSIGNED":
       return `${activity.author.name} assigned the deal to ${activity.seller.name}`
     case "STATUS_CHANGED":
-      return `${activity.author.name} moved the deal to ${activity.status}`
+      return `${activity.author.name} moved the deal to ${dealStatusLabels[activity.status]}`
     case "WON":
       return `${activity.author.name} closed the deal as won`
     case "LOST":
-      return `${activity.author.name} closed the deal as lost (${activity.lostReason})`
+      return `${activity.author.name} closed the deal as lost (${lostReasonLabels[activity.lostReason]})`
   }
 }
 
@@ -44,7 +44,7 @@ export const nextStepPrompt = (
       role: "user",
       content: [
         `Deal: ${deal.title}`,
-        `Status: ${deal.status}`,
+        `Status: ${dealStatusLabels[deal.status]}`,
         `Value: ${currency.format(deal.valueCents / 100)}`,
         `Expected close date: ${deal.expectedCloseDate ?? "not set"}`,
         `Lead: ${deal.lead.name} (${deal.lead.company})`,

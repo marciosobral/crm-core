@@ -1,5 +1,6 @@
 import {
   CreateDealPayload,
+  dealStatusLabels,
   hasPermission,
   InvalidDealLead,
   InvalidDealSeller,
@@ -27,7 +28,6 @@ import { runApi } from "#src/lib/api-client.ts"
 import { meQueryOptions } from "#src/lib/auth.ts"
 import { dealsQueryKey } from "#src/lib/deals.ts"
 import { fieldErrorsFromIssue } from "#src/lib/form-errors.ts"
-import { dealStatusLabels } from "#src/lib/labels.ts"
 import { ensureSellersIfPermitted, leadsQueryKey, leadsQueryOptions } from "#src/lib/leads.ts"
 import type { SelectOption } from "#src/lib/use-select.ts"
 

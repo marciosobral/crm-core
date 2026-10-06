@@ -1,6 +1,6 @@
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import { autoScrollForElements } from "@atlaskit/pragmatic-drag-and-drop-auto-scroll/element"
-import { Deal, DealClosed, hasPermission, OpenDealStatus } from "@crm/contract"
+import { Deal, DealClosed, dealStatusLabels, hasPermission, OpenDealStatus } from "@crm/contract"
 import {
   keepPreviousData,
   useMutation,
@@ -25,7 +25,6 @@ import { runApi } from "#src/lib/api-client.ts"
 import { meQueryOptions } from "#src/lib/auth.ts"
 import { cn } from "#src/lib/cn.ts"
 import { dealsQueryOptions, invalidateDealQueries } from "#src/lib/deals.ts"
-import { dealStatusLabels } from "#src/lib/labels.ts"
 import { ensureSellersIfPermitted, isVisibleSellerId } from "#src/lib/leads.ts"
 import { isDesktop } from "#src/lib/media.ts"
 import { useUrlSearch } from "#src/lib/use-url-search.ts"

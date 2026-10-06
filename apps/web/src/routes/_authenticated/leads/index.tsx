@@ -1,4 +1,4 @@
-import { DealStatus, hasPermission } from "@crm/contract"
+import { DealStatus, dealStatusLabels, hasPermission } from "@crm/contract"
 import { keepPreviousData, useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { Option, Schema } from "effect"
@@ -14,7 +14,6 @@ import { Table, TableCell, TableHead, TableRow } from "#src/components/ui/table.
 import { meQueryOptions } from "#src/lib/auth.ts"
 import { cn } from "#src/lib/cn.ts"
 import { formatPhone, formatRelative } from "#src/lib/format.ts"
-import { dealStatusLabels } from "#src/lib/labels.ts"
 import { ensureSellersIfPermitted, isVisibleSellerId, leadsQueryOptions } from "#src/lib/leads.ts"
 import { useUrlSearch } from "#src/lib/use-url-search.ts"
 

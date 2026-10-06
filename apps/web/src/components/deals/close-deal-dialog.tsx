@@ -1,4 +1,10 @@
-import { CloseDealPayload, type Deal, DealClosed, LostReason } from "@crm/contract"
+import {
+  CloseDealPayload,
+  type Deal,
+  DealClosed,
+  LostReason,
+  lostReasonLabels,
+} from "@crm/contract"
 import { Result, Schema, SchemaIssue } from "effect"
 import { X } from "lucide-react"
 import { type FormEvent, type MouseEvent, useState } from "react"
@@ -8,7 +14,6 @@ import { Select } from "#src/components/ui/select.tsx"
 import { TextArea } from "#src/components/ui/text-area.tsx"
 import { firstPathKey } from "#src/lib/form-errors.ts"
 import { formatDealValue } from "#src/lib/format.ts"
-import { lostReasonLabels } from "#src/lib/labels.ts"
 import { useCloseDeal } from "#src/lib/use-close-deal.ts"
 
 type CloseDealMode = "choose" | "WON" | "LOST"

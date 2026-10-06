@@ -16,6 +16,15 @@ export const LostReason = Schema.Literals([
 ])
 export type LostReason = typeof LostReason.Type
 
+export const lostReasonLabels: Record<LostReason, string> = {
+  PRICE: "Preço",
+  COMPETITOR: "Concorrente",
+  NO_BUDGET: "Sem orçamento",
+  NO_RESPONSE: "Sem resposta",
+  GAVE_UP: "Desistiu",
+  OTHER: "Outro",
+}
+
 export class DealLead extends Schema.Class<DealLead>("DealLead")({
   id: Schema.String,
   name: Schema.String,

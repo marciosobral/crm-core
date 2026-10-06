@@ -1,7 +1,6 @@
-import { type Deal, isClosedStatus, type Lead } from "@crm/contract"
+import { type Deal, isClosedStatus, type Lead, lostReasonLabels } from "@crm/contract"
 import { StatusBadge } from "#src/components/ui/status-badge.tsx"
 import { formatDate, formatDealValue } from "#src/lib/format.ts"
-import { lostReasonLabels } from "#src/lib/labels.ts"
 
 type DealSummaryProps = {
   deal: Deal

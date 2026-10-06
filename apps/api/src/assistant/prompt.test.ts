@@ -37,7 +37,7 @@ it("describes the deal and lists the newest activities oldest first", () => {
   const text = textOf(deal, newestFirst)
   expect(text).toContain("Academia X - Kit Completo")
   expect(text).toContain("Thiago Lima (Academia X)")
-  expect(text).toContain("NEGOTIATION")
+  expect(text).toContain("Status: Negociação")
   expect(text).not.toContain("Comentário 4")
   expect(text).toContain("Comentário 5")
   expect(text.indexOf("Comentário 5")).toBeLessThan(text.indexOf("Comentário 24"))
