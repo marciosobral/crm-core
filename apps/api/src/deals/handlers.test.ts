@@ -348,3 +348,141 @@ it.effect("derives the lead status from closed deals", () =>
     expect(leads).toMatchObject([{ id: leadId, status: "LOST" }])
   }).pipe(Effect.scoped),
 )
+
+const listActivities = (send: Send, cookie: string | undefined, id: string) =>
+  send(
+    new Request(`http://localhost/deals/${id}/activities`, {
+      headers: cookie ? { cookie } : {},
+    }),
+  )
+
+const addComment = (send: Send, cookie: string | undefined, id: string, body: unknown) =>
+  send(
+    new Request(`http://localhost/deals/${id}/comments`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) },
+      body: JSON.stringify({ body }),
+    }),
+  )
+
+const decodeKinds = Schema.decodeUnknownSync(Schema.Array(Schema.Struct({ kind: Schema.String })))
+
+it.effect("records events when a deal is created, moved and closed", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    const cookie = yield* loginAs(send, anaEmail, sellerPassword)
+    const leadId = yield* createLead(send, cookie)
+    const dealId = decodeId(yield* jsonOf(yield* createDeal(send, cookie, { leadId }))).id
+    yield* moveDeal(send, cookie, dealId, "NEGOTIATION")
+    yield* moveDeal(send, cookie, dealId, "NEGOTIATION")
+    yield* closeDeal(send, cookie, dealId, { result: "LOST", reason: "PRICE" })
+    const response = yield* listActivities(send, cookie, dealId)
+    expect(response.status).toBe(200)
+    const activities = yield* jsonOf(response)
+    expect(decodeKinds(activities).map((activity) => activity.kind)).toEqual([
+      "LOST",
+      "STATUS_CHANGED",
+      "SELLER_ASSIGNED",
+      "CREATED",
+    ])
+    expect(activities).toMatchObject([
+      { kind: "LOST", lostReason: "PRICE", author: { name: "Ana Souza" } },
+      { kind: "STATUS_CHANGED", status: "NEGOTIATION" },
+      { kind: "SELLER_ASSIGNED", seller: { name: "Ana Souza" } },
+      { kind: "CREATED", author: { name: "Ana Souza" } },
+    ])
+  }).pipe(Effect.scoped),
+)
+
+it.effect("records no status change after the deal is closed", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    const cookie = yield* loginAs(send, anaEmail, sellerPassword)
+    const leadId = yield* createLead(send, cookie)
+    const dealId = decodeId(yield* jsonOf(yield* createDeal(send, cookie, { leadId }))).id
+    yield* closeDeal(send, cookie, dealId, { result: "WON" })
+    expect((yield* moveDeal(send, cookie, dealId, "CONTACTED")).status).toBe(409)
+    const activities = yield* jsonOf(yield* listActivities(send, cookie, dealId))
+    expect(decodeKinds(activities).map((activity) => activity.kind)).toEqual([
+      "WON",
+      "SELLER_ASSIGNED",
+      "CREATED",
+    ])
+  }).pipe(Effect.scoped),
+)
+
+it.effect("attributes events to the acting user, not the deal's seller", () =>
+  Effect.gen(function* () {
+    const { send, sql } = yield* makeTestApi
+    const ids = yield* idsByEmail(sql)
+    const demo = yield* loginAs(send, demoEmail, demoPassword)
+    const leadId = yield* createLead(send, demo, { sellerId: ids.ana })
+    const dealId = decodeId(
+      yield* jsonOf(yield* createDeal(send, demo, { leadId, sellerId: ids.ana })),
+    ).id
+    yield* moveDeal(send, demo, dealId, "CONTACTED")
+    expect(yield* jsonOf(yield* listActivities(send, demo, dealId))).toMatchObject([
+      { kind: "STATUS_CHANGED", author: { name: "Conta Demo" } },
+      { kind: "SELLER_ASSIGNED", author: { name: "Conta Demo" }, seller: { name: "Ana Souza" } },
+      { kind: "CREATED", author: { name: "Conta Demo" } },
+    ])
+  }).pipe(Effect.scoped),
+)
+
+it.effect("adds trimmed comments and lists them with the events, newest first", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    const cookie = yield* loginAs(send, anaEmail, sellerPassword)
+    const leadId = yield* createLead(send, cookie)
+    const dealId = decodeId(yield* jsonOf(yield* createDeal(send, cookie, { leadId }))).id
+    const first = yield* addComment(send, cookie, dealId, "Cliente pediu desconto")
+    expect(first.status).toBe(201)
+    expect(yield* jsonOf(first)).toMatchObject({
+      kind: "COMMENT",
+      body: "Cliente pediu desconto",
+      author: { name: "Ana Souza" },
+    })
+    yield* addComment(send, cookie, dealId, "  Reunião na sexta  ")
+    const activities = yield* jsonOf(yield* listActivities(send, cookie, dealId))
+    expect(activities).toMatchObject([
+      { kind: "COMMENT", body: "Reunião na sexta" },
+      { kind: "COMMENT", body: "Cliente pediu desconto" },
+      { kind: "SELLER_ASSIGNED" },
+      { kind: "CREATED" },
+    ])
+  }).pipe(Effect.scoped),
+)
+
+it.effect("rejects empty or too long comments", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    const cookie = yield* loginAs(send, anaEmail, sellerPassword)
+    const leadId = yield* createLead(send, cookie)
+    const dealId = decodeId(yield* jsonOf(yield* createDeal(send, cookie, { leadId }))).id
+    expect((yield* addComment(send, cookie, dealId, "   ")).status).toBe(400)
+    expect((yield* addComment(send, cookie, dealId, "x".repeat(2001))).status).toBe(400)
+    expect((yield* addComment(send, cookie, dealId, "x".repeat(2000))).status).toBe(201)
+  }).pipe(Effect.scoped),
+)
+
+it.effect("scopes comments and activities to the deals the user can see", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    const ana = yield* loginAs(send, anaEmail, sellerPassword)
+    const bruno = yield* loginAs(send, brunoEmail, sellerPassword)
+    const demo = yield* loginAs(send, demoEmail, demoPassword)
+    const leadId = yield* createLead(send, ana)
+    const dealId = decodeId(yield* jsonOf(yield* createDeal(send, ana, { leadId }))).id
+    const missingId = "00000000-0000-4000-8000-000000000000"
+    expect((yield* listActivities(send, bruno, dealId)).status).toBe(404)
+    expect((yield* addComment(send, bruno, dealId, "Oi")).status).toBe(404)
+    expect((yield* listActivities(send, ana, missingId)).status).toBe(404)
+    expect((yield* addComment(send, ana, missingId, "Oi")).status).toBe(404)
+    expect((yield* addComment(send, undefined, dealId, "Oi")).status).toBe(401)
+    expect(
+      yield* jsonOf(yield* addComment(send, demo, dealId, "Aprovado desconto extra")),
+    ).toMatchObject({ author: { name: "Conta Demo" } })
+    yield* closeDeal(send, ana, dealId, { result: "WON" })
+    expect((yield* addComment(send, ana, dealId, "Entrega agendada")).status).toBe(201)
+  }).pipe(Effect.scoped),
+)

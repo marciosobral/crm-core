@@ -1,4 +1,13 @@
-import { Deal, DealLead, DealStatus, LostReason, OpenDealStatus, Seller } from "@crm/contract"
+import {
+  Deal,
+  type DealActivity,
+  type DealComment,
+  DealLead,
+  DealStatus,
+  LostReason,
+  OpenDealStatus,
+  Seller,
+} from "@crm/contract"
 import { Context, Effect, Layer, Option, Schema } from "effect"
 import { SqlClient, type SqlError, SqlSchema } from "effect/unstable/sql"
 import { dieOnSchemaError } from "#src/platform/schema-defects.ts"
@@ -63,6 +72,85 @@ const DealClosing = Schema.Union([
   }),
 ])
 
+const NewDealEvent = Schema.Struct({
+  dealId: Schema.String,
+  actorId: Schema.String,
+  type: Schema.Literals(["CREATED", "SELLER_ASSIGNED", "STATUS_CHANGED", "WON", "LOST"]),
+  status: Schema.NullOr(OpenDealStatus),
+  lostReason: Schema.NullOr(LostReason),
+  sellerId: Schema.NullOr(Schema.String),
+})
+
+const NewDealComment = Schema.Struct({
+  dealId: Schema.String,
+  authorId: Schema.String,
+  body: Schema.String,
+})
+
+const activityRowFields = {
+  id: Schema.String,
+  authorId: Schema.String,
+  authorName: Schema.String,
+  createdAt: Schema.DateTimeUtcFromDate,
+}
+
+const CommentRow = Schema.Struct({
+  ...activityRowFields,
+  kind: Schema.Literal("COMMENT"),
+  body: Schema.String,
+})
+
+const ActivityRow = Schema.Union([
+  CommentRow,
+  Schema.Struct({ ...activityRowFields, kind: Schema.Literals(["CREATED", "WON"]) }),
+  Schema.Struct({
+    ...activityRowFields,
+    kind: Schema.Literal("SELLER_ASSIGNED"),
+    sellerId: Schema.String,
+    sellerName: Schema.String,
+  }),
+  Schema.Struct({
+    ...activityRowFields,
+    kind: Schema.Literal("STATUS_CHANGED"),
+    status: OpenDealStatus,
+  }),
+  Schema.Struct({ ...activityRowFields, kind: Schema.Literal("LOST"), lostReason: LostReason }),
+])
+
+const toComment = (row: typeof CommentRow.Type): DealComment => ({
+  kind: "COMMENT",
+  id: row.id,
+  author: new Seller({ id: row.authorId, name: row.authorName }),
+  createdAt: row.createdAt,
+  body: row.body,
+})
+
+const toActivity = (row: typeof ActivityRow.Type): DealActivity => {
+  const base = {
+    id: row.id,
+    author: new Seller({ id: row.authorId, name: row.authorName }),
+    createdAt: row.createdAt,
+  }
+  switch (row.kind) {
+    case "COMMENT":
+      return toComment(row)
+    case "CREATED":
+      return { ...base, kind: "CREATED" }
+    case "WON":
+      return { ...base, kind: "WON" }
+    case "SELLER_ASSIGNED":
+      return {
+        ...base,
+        kind: "SELLER_ASSIGNED",
+        seller: new Seller({ id: row.sellerId, name: row.sellerName }),
+      }
+    case "STATUS_CHANGED":
+      return { ...base, kind: "STATUS_CHANGED", status: row.status }
+    case "LOST":
+      return { ...base, kind: "LOST", lostReason: row.lostReason }
+  }
+}
+
 export class DealsRepository extends Context.Service<
   DealsRepository,
   {
@@ -80,11 +168,19 @@ export class DealsRepository extends Context.Service<
     readonly moveOpen: (
       id: string,
       status: OpenDealStatus,
+      actorId: string,
     ) => Effect.Effect<Option.Option<Deal>, SqlError.SqlError>
     readonly close: (
       id: string,
       closing: typeof DealClosing.Type,
+      actorId: string,
     ) => Effect.Effect<Option.Option<Deal>, SqlError.SqlError>
+    readonly listActivities: (
+      dealId: string,
+    ) => Effect.Effect<ReadonlyArray<DealActivity>, SqlError.SqlError>
+    readonly addComment: (
+      comment: typeof NewDealComment.Type,
+    ) => Effect.Effect<DealComment, SqlError.SqlError>
   }
 >()("crm/DealsRepository") {}
 
@@ -155,14 +251,21 @@ export const DealsRepositoryLive = Layer.effect(
       `,
     })
 
-    // The open-status guard lives in the UPDATE so a deal closed concurrently is never reopened.
+    // The open-status guard and the previous status come from one locked read: a deal closed
+    // concurrently is never reopened, and only a real change records a STATUS_CHANGED event.
     const updateOpenStatus = SqlSchema.findOneOption({
       Request: Schema.Struct({ id: Schema.String, status: OpenDealStatus }),
-      Result: Schema.Struct({ id: Schema.String }),
+      Result: Schema.Struct({ previousStatus: OpenDealStatus }),
       execute: ({ id, status }) => sql`
-        UPDATE deals SET status = ${status}, updated_at = now()
-        WHERE id = ${id} AND status NOT IN ('WON', 'LOST')
-        RETURNING id
+        WITH current AS (
+          SELECT id, status FROM deals
+          WHERE id = ${id} AND status NOT IN ('WON', 'LOST')
+          FOR UPDATE
+        )
+        UPDATE deals d SET status = ${status}, updated_at = now()
+        FROM current c
+        WHERE d.id = c.id
+        RETURNING c.status AS "previousStatus"
       `,
     })
 
@@ -179,6 +282,54 @@ export const DealsRepositoryLive = Layer.effect(
         RETURNING id
       `,
     })
+
+    const insertEvent = SqlSchema.void({
+      Request: NewDealEvent,
+      execute: (event) => sql`
+        INSERT INTO deal_events (deal_id, actor_id, type, status, lost_reason, seller_id)
+        VALUES (${event.dealId}, ${event.actorId}, ${event.type}, ${event.status},
+                ${event.lostReason}, ${event.sellerId})
+      `,
+    })
+
+    const insertComment = SqlSchema.findOne({
+      Request: NewDealComment,
+      Result: CommentRow,
+      execute: (comment) => sql`
+        WITH inserted AS (
+          INSERT INTO deal_comments (deal_id, author_id, body)
+          VALUES (${comment.dealId}, ${comment.authorId}, ${comment.body})
+          RETURNING id, author_id, body, created_at
+        )
+        SELECT i.id, 'COMMENT' AS kind, i.body, u.id AS "authorId", u.name AS "authorName",
+               i.created_at AS "createdAt"
+        FROM inserted i
+        JOIN users u ON u.id = i.author_id
+      `,
+    })
+
+    const listActivities = SqlSchema.findAll({
+      Request: Schema.String,
+      Result: ActivityRow,
+      execute: (dealId) => sql`
+        SELECT c.id, 'COMMENT' AS kind, c.body, NULL::text AS status, NULL::text AS "lostReason",
+               NULL::uuid AS "sellerId", NULL::text AS "sellerName",
+               a.id AS "authorId", a.name AS "authorName", c.created_at AS "createdAt", c.seq
+        FROM deal_comments c
+        JOIN users a ON a.id = c.author_id
+        WHERE c.deal_id = ${dealId}
+        UNION ALL
+        SELECT e.id, e.type, NULL::text, e.status, e.lost_reason, s.id, s.name,
+               a.id, a.name, e.created_at, e.seq
+        FROM deal_events e
+        JOIN users a ON a.id = e.actor_id
+        LEFT JOIN users s ON s.id = e.seller_id
+        WHERE e.deal_id = ${dealId}
+        ORDER BY "createdAt" DESC, seq DESC
+      `,
+    })
+
+    const noEventPayload = { status: null, lostReason: null, sellerId: null }
 
     const readBack = (id: string) =>
       Effect.flatMap(findById({ id }), (row) =>
@@ -203,23 +354,67 @@ export const DealsRepositoryLive = Layer.effect(
       create: (deal) =>
         Effect.gen(function* () {
           const { id } = yield* insert(deal)
+          yield* insertEvent({
+            dealId: id,
+            actorId: deal.createdBy,
+            type: "CREATED",
+            ...noEventPayload,
+          })
+          yield* insertEvent({
+            dealId: id,
+            actorId: deal.createdBy,
+            type: "SELLER_ASSIGNED",
+            ...noEventPayload,
+            sellerId: deal.sellerId,
+          })
           return yield* readBack(id)
         }).pipe(
+          sql.withTransaction,
           Effect.catchTag("NoSuchElementError", (error) => Effect.die(error)),
           dieOnSchemaError,
         ),
-      moveOpen: (id, status) =>
+      moveOpen: (id, status, actorId) =>
         Effect.gen(function* () {
           const updated = yield* updateOpenStatus({ id, status })
           if (Option.isNone(updated)) return Option.none()
+          if (updated.value.previousStatus !== status)
+            yield* insertEvent({
+              dealId: id,
+              actorId,
+              type: "STATUS_CHANGED",
+              ...noEventPayload,
+              status,
+            })
           return Option.some(yield* readBack(id))
-        }).pipe(dieOnSchemaError),
-      close: (id, closing) =>
+        }).pipe(sql.withTransaction, dieOnSchemaError),
+      close: (id, closing, actorId) =>
         Effect.gen(function* () {
           const updated = yield* updateClosing({ id, closing })
           if (Option.isNone(updated)) return Option.none()
+          yield* insertEvent(
+            closing.status === "WON"
+              ? { dealId: id, actorId, type: "WON", ...noEventPayload }
+              : {
+                  dealId: id,
+                  actorId,
+                  type: "LOST",
+                  ...noEventPayload,
+                  lostReason: closing.lostReason,
+                },
+          )
           return Option.some(yield* readBack(id))
-        }).pipe(dieOnSchemaError),
+        }).pipe(sql.withTransaction, dieOnSchemaError),
+      listActivities: (dealId) =>
+        listActivities(dealId).pipe(
+          dieOnSchemaError,
+          Effect.map((rows) => rows.map(toActivity)),
+        ),
+      addComment: (comment) =>
+        insertComment(comment).pipe(
+          Effect.map(toComment),
+          Effect.catchTag("NoSuchElementError", (error) => Effect.die(error)),
+          dieOnSchemaError,
+        ),
     }
   }),
 )

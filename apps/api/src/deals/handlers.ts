@@ -81,7 +81,7 @@ export const DealsLive = HttpApiBuilder.group(CrmApi, "deals", (handlers) =>
           const scope = hasPermission(user, "deal.see_all") ? {} : { sellerId: user.id }
           if (Option.isNone(yield* deals.findById(params.id, scope)))
             return yield* new HttpApiError.NotFound()
-          const moved = yield* deals.moveOpen(params.id, payload.status)
+          const moved = yield* deals.moveOpen(params.id, payload.status, user.id)
           if (Option.isNone(moved)) return yield* new DealClosed()
           yield* Effect.logInfo("Deal moved").pipe(
             Effect.annotateLogs({ dealId: params.id, status: payload.status }),
@@ -100,12 +100,39 @@ export const DealsLive = HttpApiBuilder.group(CrmApi, "deals", (handlers) =>
             payload.result === "WON"
               ? { status: "WON" }
               : { status: "LOST", lostReason: payload.reason, lostNote: nullIfBlank(payload.note) },
+            user.id,
           )
           if (Option.isNone(closed)) return yield* new DealClosed()
           yield* Effect.logInfo("Deal closed").pipe(
             Effect.annotateLogs({ dealId: params.id, result: payload.result }),
           )
           return closed.value
+        }).pipe(Effect.catchTag("SqlError", failUnavailable)),
+      )
+      .handle("listActivities", ({ params }) =>
+        Effect.gen(function* () {
+          const user = yield* CurrentUser
+          const scope = hasPermission(user, "deal.see_all") ? {} : { sellerId: user.id }
+          if (Option.isNone(yield* deals.findById(params.id, scope)))
+            return yield* new HttpApiError.NotFound()
+          return yield* deals.listActivities(params.id)
+        }).pipe(Effect.catchTag("SqlError", failUnavailable)),
+      )
+      .handle("comment", ({ params, payload }) =>
+        Effect.gen(function* () {
+          const user = yield* requirePermission("deal.comment")
+          const scope = hasPermission(user, "deal.see_all") ? {} : { sellerId: user.id }
+          if (Option.isNone(yield* deals.findById(params.id, scope)))
+            return yield* new HttpApiError.NotFound()
+          const comment = yield* deals.addComment({
+            dealId: params.id,
+            authorId: user.id,
+            body: payload.body,
+          })
+          yield* Effect.logInfo("Deal comment added").pipe(
+            Effect.annotateLogs({ dealId: params.id }),
+          )
+          return comment
         }).pipe(Effect.catchTag("SqlError", failUnavailable)),
       )
   }),
