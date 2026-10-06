@@ -76,9 +76,30 @@ Decisions: comments live on deals only; the timeline mixes comments with system 
 - [x] Tests with a mocked provider layer
 - [x] Record AI usage per user (tokens, model, outcome) in `ai_usage`
 
-Decisions: next-step suggestion on open deals; provider-agnostic `LanguageModel` with OpenAI (`gpt-6-luna` by default) as the only provider; optional key (503 without it); on demand, 5 per user per minute; suggestions are not persisted.
+Decisions: next-step suggestion on open deals; provider-agnostic `LanguageModel` with OpenAI (`gpt-6-luna` by default) as the only provider; optional key (503 without it); on demand, 5 per user per minute; reasoning effort `low` by default (`AI_REASONING_EFFORT`); suggestions are not persisted; every model call is recorded in `ai_usage`, queried with SQL (no screen).
 
-## 7. Release readiness
+## 7. AI pipeline search
+
+- [ ] Typed search filters for deals (status, value range, seller, days without interaction, expected close date, text), applied within the user's scope
+- [ ] Endpoint that turns a question in Portuguese into those filters with the language model; never generates SQL
+- [ ] Web: question field on the board; the understood filters show as editable chips
+- [ ] Usage recorded in `ai_usage` as a new feature; rate limited per user
+- [ ] Tests with a mocked provider layer
+
+Open decisions: the filter set, how ambiguous or unsupported questions are answered, where the field lives on mobile.
+
+## 8. AI deal copilot
+
+- [ ] Spike: streaming and tool approval in the Effect AI and HttpApi release in use
+- [ ] Toolkit over existing data: deal timeline, lead, pipeline search (step 7)
+- [ ] Write tools (comment, move status, follow-up draft) return proposals the user approves; the model never writes on its own
+- [ ] Chat on the deal details with streamed answers
+- [ ] Every model step recorded in `ai_usage`; limits per conversation turn
+- [ ] Tests with a mocked provider layer, including permission scope for every tool
+
+Open decisions: which tools ship first, conversation persistence, how the next-step suggestion fits in.
+
+## 9. Release readiness
 
 - [ ] Web tests for the main flows (login, create lead)
 - [ ] README: concise "Technical decisions" section
