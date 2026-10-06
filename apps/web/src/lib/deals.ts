@@ -1,7 +1,7 @@
 import type { DealActivity } from "@crm/contract"
 import { queryOptions } from "@tanstack/react-query"
 import { HttpApiError } from "effect/unstable/httpapi"
-import { runApi } from "./api-client.ts"
+import { runApi, shouldRetryQuery } from "./api-client.ts"
 import { formatRelative } from "./dates.ts"
 
 export const dealsQueryKey = "deals"
@@ -12,7 +12,7 @@ export const dealActivitiesQueryKey = "deal-activities"
 
 // A missing deal stays missing, so retrying only delays the "not found" state.
 const retryUnlessNotFound = (failureCount: number, error: Error) =>
-  !(error instanceof HttpApiError.NotFound) && failureCount < 3
+  !(error instanceof HttpApiError.NotFound) && shouldRetryQuery(failureCount, error)
 
 export const dealDetailsQueryOptions = (id: string) =>
   queryOptions({

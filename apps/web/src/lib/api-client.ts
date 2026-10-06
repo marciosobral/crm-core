@@ -1,7 +1,7 @@
 import { CrmApi } from "@crm/contract"
 import { Effect } from "effect"
 import { FetchHttpClient } from "effect/unstable/http"
-import { HttpApiClient } from "effect/unstable/httpapi"
+import { HttpApiClient, HttpApiError } from "effect/unstable/httpapi"
 
 const baseUrl = import.meta.env.VITE_API_URL
 if (!baseUrl) throw new Error("VITE_API_URL is not set")
@@ -21,3 +21,7 @@ export const runApi = <A, E>(request: (client: Client) => Effect.Effect<A, E>): 
       ),
     ),
   )
+
+// Retrying a 401 only delays the login redirect (and retries pause while the tab is hidden).
+export const shouldRetryQuery = (failureCount: number, error: Error) =>
+  !(error instanceof HttpApiError.Unauthorized) && failureCount < 3
