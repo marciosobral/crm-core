@@ -8,12 +8,14 @@ import { useAnchoredPopover } from "#src/lib/use-anchored-popover.ts"
 type MoveMenuProps = {
   dealId: string
   dealTitle: string
-  currentStatus: OpenDealStatus
+  currentStatus: OpenDealStatus | undefined
   canClose: boolean
+  canComment: boolean
   shouldFocusButton: boolean
   onButtonFocused: () => void
   onMove: (status: OpenDealStatus) => void
   onCloseRequest: (mode: "WON" | "LOST") => void
+  onCommentRequest: () => void
 }
 
 export function MoveMenu({
@@ -21,10 +23,12 @@ export function MoveMenu({
   dealTitle,
   currentStatus,
   canClose,
+  canComment,
   shouldFocusButton,
   onButtonFocused,
   onMove,
   onCloseRequest,
+  onCommentRequest,
 }: MoveMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
   const wrapperRef = useRef<HTMLSpanElement>(null)
@@ -99,54 +103,72 @@ export function MoveMenu({
             Ver detalhes
           </Link>
         </li>
-        <li>
-          <hr className="my-1 border-line" />
-        </li>
-        {OpenDealStatus.literals
-          .filter((status) => status !== currentStatus)
-          .map((status) => (
-            <li key={status}>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsOpen(false)
-                  onMove(status)
-                }}
-                className="w-full px-3 py-1.5 text-left text-sm text-white hover:bg-line focus-visible:bg-line focus-visible:outline-none"
-              >
-                {dealStatusLabels[status]}
-              </button>
-            </li>
-          ))}
-        {canClose && (
+        {canComment && (
+          <li>
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false)
+                onCommentRequest()
+              }}
+              className="w-full px-3 py-1.5 text-left text-sm text-white hover:bg-line focus-visible:bg-line focus-visible:outline-none"
+            >
+              Comentar
+            </button>
+          </li>
+        )}
+        {currentStatus !== undefined && (
           <>
             <li>
               <hr className="my-1 border-line" />
             </li>
-            <li>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsOpen(false)
-                  onCloseRequest("WON")
-                }}
-                className="w-full px-3 py-1.5 text-left text-sm text-status-won hover:bg-line focus-visible:bg-line focus-visible:outline-none"
-              >
-                Marcar como ganho
-              </button>
-            </li>
-            <li>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsOpen(false)
-                  onCloseRequest("LOST")
-                }}
-                className="w-full px-3 py-1.5 text-left text-sm text-status-lost hover:bg-line focus-visible:bg-line focus-visible:outline-none"
-              >
-                Marcar como perdido
-              </button>
-            </li>
+            {OpenDealStatus.literals
+              .filter((status) => status !== currentStatus)
+              .map((status) => (
+                <li key={status}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsOpen(false)
+                      onMove(status)
+                    }}
+                    className="w-full px-3 py-1.5 text-left text-sm text-white hover:bg-line focus-visible:bg-line focus-visible:outline-none"
+                  >
+                    {dealStatusLabels[status]}
+                  </button>
+                </li>
+              ))}
+            {canClose && (
+              <>
+                <li>
+                  <hr className="my-1 border-line" />
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsOpen(false)
+                      onCloseRequest("WON")
+                    }}
+                    className="w-full px-3 py-1.5 text-left text-sm text-status-won hover:bg-line focus-visible:bg-line focus-visible:outline-none"
+                  >
+                    Marcar como ganho
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsOpen(false)
+                      onCloseRequest("LOST")
+                    }}
+                    className="w-full px-3 py-1.5 text-left text-sm text-status-lost hover:bg-line focus-visible:bg-line focus-visible:outline-none"
+                  >
+                    Marcar como perdido
+                  </button>
+                </li>
+              </>
+            )}
           </>
         )}
       </ul>

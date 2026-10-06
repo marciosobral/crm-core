@@ -22,12 +22,16 @@ import { formatPhone } from "#src/lib/phone.ts"
 const isUuid = Schema.is(Schema.String.check(Schema.isUUID()))
 
 export const Route = createFileRoute("/_authenticated/deals/$dealId")({
+  validateSearch: (search: Record<string, unknown>): { focus?: "comment" } =>
+    search.focus === "comment" ? { focus: "comment" } : {},
   loader: ({ context }) => context.queryClient.ensureQueryData(meQueryOptions),
   component: DealPage,
 })
 
 function DealPage() {
   const { dealId } = Route.useParams()
+  const { focus } = Route.useSearch()
+  const navigate = Route.useNavigate()
   const isValidDealId = isUuid(dealId)
   const { data: user } = useSuspenseQuery(meQueryOptions)
   const detailsQuery = useQuery({ ...dealDetailsQueryOptions(dealId), enabled: isValidDealId })
@@ -96,6 +100,8 @@ function DealPage() {
               dealId={dealId}
               activities={activitiesQuery.data}
               isError={activitiesQuery.isError}
+              shouldFocusComposer={focus === "comment"}
+              onComposerFocused={() => void navigate({ search: {}, replace: true })}
             />
           </div>
         ) : (

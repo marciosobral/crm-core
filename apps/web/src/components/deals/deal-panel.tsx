@@ -15,9 +15,19 @@ import { CloseDealDialog } from "./close-deal-dialog.tsx"
 import { DealSummary } from "./deal-summary.tsx"
 import { PanelComments } from "./panel-comments.tsx"
 
-type DealPanelProps = { dealId: string; onDismiss: () => void }
+type DealPanelProps = {
+  dealId: string
+  shouldFocusComposer: boolean
+  onComposerFocused: () => void
+  onDismiss: () => void
+}
 
-export function DealPanel({ dealId, onDismiss }: DealPanelProps) {
+export function DealPanel({
+  dealId,
+  shouldFocusComposer,
+  onComposerFocused,
+  onDismiss,
+}: DealPanelProps) {
   const { data: user } = useSuspenseQuery(meQueryOptions)
   const detailsQuery = useQuery(dealDetailsQueryOptions(dealId))
   const activitiesQuery = useQuery(dealActivitiesQueryOptions(dealId))
@@ -63,6 +73,8 @@ export function DealPanel({ dealId, onDismiss }: DealPanelProps) {
                 dealId={dealId}
                 activities={activitiesQuery.data}
                 isError={activitiesQuery.isError}
+                shouldFocusComposer={shouldFocusComposer}
+                onComposerFocused={onComposerFocused}
               />
             </div>
           ) : (

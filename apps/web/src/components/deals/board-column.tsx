@@ -14,12 +14,14 @@ type BoardColumnProps = {
   deals: ReadonlyArray<Deal>
   canMove: boolean
   canClose: boolean
+  canComment: boolean
   selectedDealId: string | undefined
   onOpenDeal: (deal: Deal) => void
   focusRequest: MoveFocusRequest | undefined
   onMoveButtonFocused: () => void
   onMove: (deal: Deal, status: OpenDealStatus) => void
   onCloseRequest: (deal: Deal, mode: "WON" | "LOST") => void
+  onCommentRequest: (deal: Deal) => void
 }
 
 export function BoardColumn({
@@ -27,12 +29,14 @@ export function BoardColumn({
   deals,
   canMove,
   canClose,
+  canComment,
   selectedDealId,
   onOpenDeal,
   focusRequest,
   onMoveButtonFocused,
   onMove,
   onCloseRequest,
+  onCommentRequest,
 }: BoardColumnProps) {
   const ref = useRef<HTMLElement>(null)
   const [isOver, setIsOver] = useState(false)
@@ -92,6 +96,7 @@ export function BoardColumn({
               deal={deal}
               canMove={canMove}
               canClose={canClose}
+              canComment={canComment}
               isSelected={selectedDealId === deal.id}
               onOpen={() => onOpenDeal(deal)}
               shouldFocusMoveButton={
@@ -100,6 +105,7 @@ export function BoardColumn({
               onMoveButtonFocused={onMoveButtonFocused}
               onMove={(status) => onMove(deal, status)}
               onCloseRequest={(mode) => onCloseRequest(deal, mode)}
+              onCommentRequest={() => onCommentRequest(deal)}
             />
           </li>
         ))}
