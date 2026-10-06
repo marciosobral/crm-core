@@ -93,7 +93,7 @@ Decisions: tools instead of RAG, so numbers are exact and permission scoped; up 
 ## 8. Release readiness
 
 - [x] Web tests for the main flows (login, create lead)
-- [ ] README: concise "Technical decisions" section
+- [x] README: concise "Technical decisions" section
 - [ ] Review README setup steps from a clean clone
 - [ ] Make the repository public
 - [ ] Final check of the live app with the demo user
