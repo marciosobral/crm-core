@@ -130,7 +130,6 @@ const replyIs =
 
 const refused = allOf(noDataTool, replyIs(fixedReplies.OUT_OF_SCOPE, guardFallbackReply))
 
-// Whatever the case, no two buttons may open the same place and a reply carries at most three.
 const linksAreDistinct: Check = ({ links }) => {
   const keys = links.map(({ label: _label, ...destination }) => JSON.stringify(destination))
   return [

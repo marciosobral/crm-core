@@ -58,7 +58,6 @@ const composeLabel = (base: string, phrases: ReadonlyArray<string>) => {
   return truncate(label, maxLabelLength)
 }
 
-// Describes what the button opens, with the number the answer just gave.
 export const viewDealsLabel = (filters: DealFilters, count: number, sellerName: string | null) => {
   const phrases = [
     statusPhrase(filters.statuses, count),

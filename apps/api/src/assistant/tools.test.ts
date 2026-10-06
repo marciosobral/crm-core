@@ -118,7 +118,7 @@ it.effect("lets a supervisor see every seller and filter by seller name", () =>
       count: 3,
       totalValueFormatted: "R$ 150.000,00",
     })
-    // No marker in the answer: every collected link is offered.
+    // The reply names no link ids, so the default links are offered, not the sample rows.
     expect(all.reply.links).toEqual([
       {
         kind: "VIEW_DEALS",
@@ -329,8 +329,9 @@ it.effect("does not widen a seller's sales summary when they name another seller
   }).pipe(Effect.scoped),
 )
 
-// The RC fails the whole generation when the model calls a tool that is not in the toolkit, so the
-// message is answered with 503 and nothing is stored; a seller never receives supervisor data.
+// Effect AI (4.0 RC) fails the whole generation when the model calls a tool missing from the
+// toolkit, so the message is answered with 503 and nothing is stored; a seller never receives
+// supervisor data.
 it.effect("answers 503 when a seller's model calls a tool it was not given", () =>
   Effect.gen(function* () {
     const prompts: Array<PromptMessages> = []

@@ -20,7 +20,6 @@ export const AssistantCoreLive = Layer.mergeAll(
   ConversationsRepositoryLive,
 )
 
-// Everything the assistant endpoints use, built on the core services.
 export const AssistantServicesLive = Layer.mergeAll(AssistantChatLive, SuggestionsLive).pipe(
   Layer.provideMerge(Layer.mergeAll(ChatToolsLive, PageContextLive, CompactionLive)),
   Layer.provideMerge(AssistantCoreLive),

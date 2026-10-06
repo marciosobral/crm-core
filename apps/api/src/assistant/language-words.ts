@@ -1,7 +1,6 @@
 // Common function words of the languages the model tends to slip into. Words that Portuguese
 // shares with Spanish or French (com, por, para, que, se, ou, no...) are left out on purpose.
 export const foreignWords = new Set([
-  // English
   "the",
   "is",
   "are",
@@ -38,7 +37,6 @@ export const foreignWords = new Set([
   "if",
   "but",
   "or",
-  // Spanish
   "el",
   "los",
   "las",
@@ -66,7 +64,6 @@ export const foreignWords = new Set([
   "gracias",
   "puedo",
   "puede",
-  // French
   "le",
   "les",
   "des",

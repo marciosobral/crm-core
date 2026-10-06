@@ -8,7 +8,6 @@ export interface Usage {
   readonly reasoning?: number
 }
 
-// The messages a model call received, in order, as the provider layer would see them.
 export type PromptMessages = Prompt.Prompt["content"]
 
 export const textOf = ({ content }: Prompt.Message) =>
@@ -73,7 +72,7 @@ export type ScriptedPart =
   | { readonly type: "tool-call"; readonly name: string; readonly params: unknown }
 
 interface ScriptOptions {
-  // Receives the messages of every call.
+  // Filled with the messages of every call, for assertions.
   readonly prompts?: Array<PromptMessages>
   readonly usage?: Usage
   // Repeats the last step forever instead of failing once the script runs out.
@@ -114,7 +113,6 @@ export const scriptedLanguageModel = (
   )
 }
 
-// A model that finishes every turn with the same DATA_ANSWER through the respond tool.
 export const answeringModel = (text: string) =>
   scriptedLanguageModel(
     [[{ type: "tool-call", name: "respond", params: { kind: "DATA_ANSWER", text, linkIds: [] } }]],

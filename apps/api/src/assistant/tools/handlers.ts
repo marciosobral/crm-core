@@ -71,7 +71,7 @@ const unavailable = (error: SqlError.SqlError) =>
 const ownerFallbackOf = (owner: Owner | null, canSeeAll: boolean, sellerId: string | undefined) =>
   owner === "ME" && canSeeAll && sellerId === undefined ? ("SUPERVISOR_TEAM" as const) : null
 
-// A user who sees everyone owns nothing, so a button filtered by their id would open an empty list.
+// A seller filter on the supervisor's own id would open an empty list, so it gets no button.
 const ownsNothing = ({ user }: ToolContext, sellerId: string | undefined, canSeeAll: boolean) =>
   sellerId === user.id && canSeeAll
 
