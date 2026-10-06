@@ -1,7 +1,7 @@
 import { Seller } from "@crm/contract"
 import { Context, Effect, Layer, Schema } from "effect"
 import { SqlClient, type SqlError, SqlSchema } from "effect/unstable/sql"
-import { dieOnSchemaError } from "#src/platform/schema-defects.ts"
+import { dieOnMissingRow, dieOnSchemaError } from "#src/platform/sql.ts"
 
 const SellerRow = Schema.Struct({ id: Schema.String, name: Schema.String })
 const IsSellerRow = Schema.Struct({ isSeller: Schema.Boolean })
@@ -41,7 +41,7 @@ export const SellersRepositoryLive = Layer.effect(
         ),
       isSeller: (id) =>
         isSeller(id).pipe(
-          Effect.catchTag("NoSuchElementError", (error) => Effect.die(error)),
+          dieOnMissingRow,
           dieOnSchemaError,
           Effect.map((row) => row.isSeller),
         ),

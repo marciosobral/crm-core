@@ -1,7 +1,7 @@
 import { CrmApi, CurrentUser, hasPermission } from "@crm/contract"
 import { Effect } from "effect"
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
-import { failUnavailable } from "#src/platform/unavailable.ts"
+import { failUnavailable } from "#src/platform/http.ts"
 import { SellersRepository } from "./repository.ts"
 
 export const SellersLive = HttpApiBuilder.group(CrmApi, "sellers", (handlers) =>

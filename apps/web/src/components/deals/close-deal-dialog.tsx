@@ -6,7 +6,8 @@ import { flushSync } from "react-dom"
 import { Button } from "#src/components/ui/button.tsx"
 import { Select } from "#src/components/ui/select.tsx"
 import { TextArea } from "#src/components/ui/text-area.tsx"
-import { formatDealValue } from "#src/lib/currency.ts"
+import { firstPathKey } from "#src/lib/form-errors.ts"
+import { formatDealValue } from "#src/lib/format.ts"
 import { lostReasonLabels } from "#src/lib/labels.ts"
 import { useCloseDeal } from "#src/lib/use-close-deal.ts"
 
@@ -23,9 +24,6 @@ type CloseDealDialogProps = {
 
 const wonButtonClasses = "bg-status-won text-canvas hover:bg-status-won/85"
 const lostButtonClasses = "bg-status-lost text-canvas hover:bg-status-lost/85"
-
-const firstPathKey = (segment: PropertyKey | { readonly key: PropertyKey } | undefined) =>
-  typeof segment === "object" ? segment.key : segment
 
 const focusPrimaryControl = (dialog: HTMLDialogElement | null) =>
   dialog?.querySelector<HTMLElement>("[data-primary-control], [name='reason']")?.focus()

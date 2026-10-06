@@ -2,6 +2,7 @@ import { X } from "lucide-react"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import { Logo } from "#src/components/ui/logo.tsx"
 import { cn } from "#src/lib/cn.ts"
+import { desktopMediaQuery } from "#src/lib/media.ts"
 import { NavDrawerContext } from "./nav-drawer-context.ts"
 import { SidebarNav } from "./sidebar-nav.tsx"
 
@@ -20,7 +21,7 @@ export function AppShell({ footer, children }: AppShellProps) {
       if (event.key === "Escape") setIsNavOpen(false)
     }
     // The drawer stops existing at lg, so an open one must not leave the page behind it inert.
-    const desktopQuery = window.matchMedia("(min-width: 1024px)")
+    const desktopQuery = window.matchMedia(desktopMediaQuery)
     const closeOnDesktop = () => setIsNavOpen(false)
     document.addEventListener("keydown", closeOnEscape)
     desktopQuery.addEventListener("change", closeOnDesktop)

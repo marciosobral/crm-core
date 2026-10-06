@@ -4,6 +4,7 @@ import { Authorization } from "./auth.ts"
 import { DealStatus, OpenDealStatus } from "./deal-status.ts"
 import { Lead } from "./leads.ts"
 import { Seller } from "./sellers.ts"
+import { requiredText, trimmedText } from "./text.ts"
 
 export const LostReason = Schema.Literals([
   "PRICE",
@@ -42,7 +43,7 @@ const isCalendarDate = (text: string) => {
 }
 
 export const CreateDealPayload = Schema.Struct({
-  title: Schema.Trim.check(Schema.isNonEmpty(), Schema.isMaxLength(120)),
+  title: requiredText(120),
   leadId: Schema.String.check(Schema.isUUID()),
   sellerId: Schema.optionalKey(Schema.String.check(Schema.isUUID())),
   valueCents: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 99_999_999_999 })),
@@ -55,20 +56,18 @@ export const CreateDealPayload = Schema.Struct({
 export type CreateDealPayload = typeof CreateDealPayload.Type
 
 export const ListDealsQuery = Schema.Struct({
-  search: Schema.optionalKey(Schema.Trim.check(Schema.isMaxLength(100))),
+  search: Schema.optionalKey(trimmedText(100)),
   sellerId: Schema.optionalKey(Schema.String.check(Schema.isUUID())),
 })
 
 export const MoveDealPayload = Schema.Struct({ status: OpenDealStatus })
-
-const lostNote = Schema.Trim.check(Schema.isMaxLength(500))
 
 export const CloseDealPayload = Schema.Union([
   Schema.Struct({ result: Schema.Literal("WON") }),
   Schema.Struct({
     result: Schema.Literal("LOST"),
     reason: LostReason,
-    note: Schema.optionalKey(lostNote),
+    note: Schema.optionalKey(trimmedText(500)),
   }).check(
     Schema.makeFilter(
       ({ reason, note }) => reason !== "OTHER" || (note !== undefined && note !== ""),
@@ -110,8 +109,10 @@ export const DealActivity = Schema.Union([
 ])
 export type DealActivity = typeof DealActivity.Type
 
+export const commentMaxLength = 2000
+
 export const AddDealCommentPayload = Schema.Struct({
-  body: Schema.Trim.check(Schema.isNonEmpty(), Schema.isMaxLength(2000)),
+  body: requiredText(commentMaxLength),
 })
 
 export class InvalidDealLead extends Schema.TaggedError<InvalidDealLead>()(
@@ -131,6 +132,8 @@ export class DealClosed extends Schema.TaggedError<DealClosed>()(
   {},
   { httpApiStatus: 409 },
 ) {}
+
+const DealIdParams = { id: Schema.String.check(Schema.isUUID()) }
 
 export class DealsGroup extends HttpApiGroup.make("deals")
   .add(
@@ -154,14 +157,14 @@ export class DealsGroup extends HttpApiGroup.make("deals")
   )
   .add(
     HttpApiEndpoint.get("get", "/deals/:id", {
-      params: { id: Schema.String.check(Schema.isUUID()) },
+      params: DealIdParams,
       success: DealDetails,
       error: [HttpApiError.NotFound, HttpApiError.ServiceUnavailable],
     }).middleware(Authorization),
   )
   .add(
     HttpApiEndpoint.patch("move", "/deals/:id/status", {
-      params: { id: Schema.String.check(Schema.isUUID()) },
+      params: DealIdParams,
       payload: MoveDealPayload,
       success: Deal,
       error: [
@@ -174,7 +177,7 @@ export class DealsGroup extends HttpApiGroup.make("deals")
   )
   .add(
     HttpApiEndpoint.post("close", "/deals/:id/close", {
-      params: { id: Schema.String.check(Schema.isUUID()) },
+      params: DealIdParams,
       payload: CloseDealPayload,
       success: Deal,
       error: [
@@ -187,14 +190,14 @@ export class DealsGroup extends HttpApiGroup.make("deals")
   )
   .add(
     HttpApiEndpoint.get("listActivities", "/deals/:id/activities", {
-      params: { id: Schema.String.check(Schema.isUUID()) },
+      params: DealIdParams,
       success: Schema.Array(DealActivity),
       error: [HttpApiError.NotFound, HttpApiError.ServiceUnavailable],
     }).middleware(Authorization),
   )
   .add(
     HttpApiEndpoint.post("comment", "/deals/:id/comments", {
-      params: { id: Schema.String.check(Schema.isUUID()) },
+      params: DealIdParams,
       payload: AddDealCommentPayload,
       success: DealComment.pipe(HttpApiSchema.status(201)),
       error: [HttpApiError.Forbidden, HttpApiError.NotFound, HttpApiError.ServiceUnavailable],

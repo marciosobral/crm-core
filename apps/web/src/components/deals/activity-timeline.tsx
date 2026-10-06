@@ -2,7 +2,7 @@ import type { DealActivity } from "@crm/contract"
 import { DateTime } from "effect"
 import { Activity, MessageSquare } from "lucide-react"
 import { cn } from "#src/lib/cn.ts"
-import { formatRelative } from "#src/lib/dates.ts"
+import { formatRelative } from "#src/lib/format.ts"
 import { dealStatusLabels, lostReasonLabels } from "#src/lib/labels.ts"
 import { CommentComposer } from "./comment-composer.tsx"
 

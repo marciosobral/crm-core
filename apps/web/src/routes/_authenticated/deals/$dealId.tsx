@@ -11,13 +11,12 @@ import { TopBar } from "#src/components/layout/top-bar.tsx"
 import { variantClasses } from "#src/components/ui/button.tsx"
 import { meQueryOptions } from "#src/lib/auth.ts"
 import { cn } from "#src/lib/cn.ts"
-import { formatDate } from "#src/lib/dates.ts"
 import {
   dealActivitiesQueryOptions,
   dealDetailsQueryOptions,
   lastContactLabel,
 } from "#src/lib/deals.ts"
-import { formatPhone } from "#src/lib/phone.ts"
+import { formatDate, formatPhone } from "#src/lib/format.ts"
 
 const isUuid = Schema.is(Schema.String.check(Schema.isUUID()))
 

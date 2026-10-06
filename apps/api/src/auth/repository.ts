@@ -1,7 +1,7 @@
 import { Role, rolePermissions, User } from "@crm/contract"
 import { Context, Effect, Layer, Option, Schema } from "effect"
 import { SqlClient, type SqlError, SqlSchema } from "effect/unstable/sql"
-import { dieOnSchemaError } from "#src/platform/schema-defects.ts"
+import { dieOnSchemaError } from "#src/platform/sql.ts"
 import { sessionMaxAge } from "./session-token.ts"
 
 const UserRow = Schema.Struct({

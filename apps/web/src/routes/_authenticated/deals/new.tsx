@@ -13,9 +13,10 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Result, Schema, SchemaIssue } from "effect"
+import { Result, Schema } from "effect"
 import { type FormEvent, useRef, useState } from "react"
 import { flushSync } from "react-dom"
+import { SellerSelect } from "#src/components/layout/seller-select.tsx"
 import { TopBar } from "#src/components/layout/top-bar.tsx"
 import { Button } from "#src/components/ui/button.tsx"
 import { CurrencyField } from "#src/components/ui/currency-field.tsx"
@@ -25,15 +26,14 @@ import { TextField } from "#src/components/ui/text-field.tsx"
 import { runApi } from "#src/lib/api-client.ts"
 import { meQueryOptions } from "#src/lib/auth.ts"
 import { dealsQueryKey } from "#src/lib/deals.ts"
+import { fieldErrorsFromIssue } from "#src/lib/form-errors.ts"
 import { dealStatusLabels } from "#src/lib/labels.ts"
-import { leadsQueryKey, leadsQueryOptions, sellersQueryOptions } from "#src/lib/leads.ts"
+import { ensureSellersIfPermitted, leadsQueryKey, leadsQueryOptions } from "#src/lib/leads.ts"
 import type { SelectOption } from "#src/lib/use-select.ts"
 
 export const Route = createFileRoute("/_authenticated/deals/new")({
   loader: async ({ context }) => {
-    const user = await context.queryClient.ensureQueryData(meQueryOptions)
-    if (hasPermission(user, "deal.assign_any"))
-      await context.queryClient.ensureQueryData(sellersQueryOptions)
+    await ensureSellersIfPermitted(context.queryClient, "deal.assign_any")
   },
   component: NewDeal,
 })
@@ -78,38 +78,6 @@ const fieldErrorMessages: Record<FormField, string> = {
   status: "Selecione o status.",
   expectedCloseDate: "Informe uma data válida.",
   description: "Texto muito longo.",
-}
-
-const isFormField = (key: unknown): key is FormField =>
-  typeof key === "string" && key in fieldErrorMessages
-
-const firstPathKey = (segment: PropertyKey | { readonly key: PropertyKey } | undefined) =>
-  typeof segment === "object" ? segment.key : segment
-
-function SellerSelect({
-  value,
-  error,
-  onChange,
-}: {
-  value: string
-  error: string | undefined
-  onChange: (value: string) => void
-}) {
-  const { data: sellers } = useSuspenseQuery(sellersQueryOptions)
-
-  return (
-    <Select
-      label="Vendedor Responsável"
-      required
-      value={value}
-      error={error}
-      name="sellerId"
-      searchable
-      placeholder="Selecionar vendedor"
-      options={sellers.map((seller) => ({ value: seller.id, label: seller.name }))}
-      onChange={onChange}
-    />
-  )
 }
 
 function NewDeal() {
@@ -188,12 +156,7 @@ function NewDeal() {
       return
     }
 
-    const formatter = SchemaIssue.makeFormatterStandardSchemaV1()
-    const nextErrors: Partial<Record<FormField, string>> = {}
-    for (const issue of formatter(result.failure.issue).issues) {
-      const key = firstPathKey(issue.path?.[0])
-      if (isFormField(key)) nextErrors[key] ??= fieldErrorMessages[key]
-    }
+    const nextErrors = fieldErrorsFromIssue(result.failure.issue, fieldErrorMessages)
     // Focus only after the errors are committed so assistive tech announces the field together with its message.
     flushSync(() => setErrors(nextErrors))
     const firstInvalid = fieldOrder.find((field) => nextErrors[field])
@@ -238,6 +201,7 @@ function NewDeal() {
               <SellerSelect
                 value={values.sellerId}
                 error={errors.sellerId}
+                placeholder="Selecionar vendedor"
                 onChange={(value) => setValue("sellerId", value)}
               />
             )}

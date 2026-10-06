@@ -32,3 +32,11 @@ export const isVisibleSellerId = async (
     : []
   return sellers.some((seller) => seller.id === sellerId)
 }
+
+export const ensureSellersIfPermitted = async (
+  queryClient: QueryClient,
+  permission: Permission,
+) => {
+  const user = await queryClient.ensureQueryData(meQueryOptions)
+  if (hasPermission(user, permission)) await queryClient.ensureQueryData(sellersQueryOptions)
+}

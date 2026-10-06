@@ -8,11 +8,13 @@ import {
 import { Effect, Option, Redacted, Result } from "effect"
 import { HttpEffect, HttpServerResponse } from "effect/unstable/http"
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
-import { failUnavailable } from "#src/platform/unavailable.ts"
+import { failUnavailable } from "#src/platform/http.ts"
 import { LoginAttempts } from "./login-attempts.ts"
 import { hashPassword, verifyPassword } from "./password.ts"
 import { AuthRepository, toUser } from "./repository.ts"
 import { hashSessionToken, makeSessionToken, sessionMaxAge } from "./session-token.ts"
+
+const sessionCookieOptions = { sameSite: "lax", path: "/" } as const
 
 export const AuthLive = HttpApiBuilder.group(CrmApi, "auth", (handlers) =>
   Effect.gen(function* () {
@@ -71,8 +73,7 @@ export const AuthLive = HttpApiBuilder.group(CrmApi, "auth", (handlers) =>
           const token = makeSessionToken()
           yield* repository.createSession({ id: hashSessionToken(token), userId: row.id })
           yield* HttpApiBuilder.securitySetCookie(sessionCookie, token, {
-            sameSite: "lax",
-            path: "/",
+            ...sessionCookieOptions,
             maxAge: sessionMaxAge,
           })
           yield* Effect.logInfo("Login succeeded").pipe(Effect.annotateLogs({ userId: row.id }))
@@ -91,8 +92,7 @@ export const AuthLive = HttpApiBuilder.group(CrmApi, "auth", (handlers) =>
             .deleteSession(hashSessionToken(Redacted.value(token)))
             .pipe(Effect.catchTag("SqlError", failUnavailable))
           yield* HttpApiBuilder.securitySetCookie(sessionCookie, "", {
-            sameSite: "lax",
-            path: "/",
+            ...sessionCookieOptions,
             maxAge: 0,
           })
         }),

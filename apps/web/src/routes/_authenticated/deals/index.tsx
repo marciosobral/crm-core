@@ -26,7 +26,8 @@ import { meQueryOptions } from "#src/lib/auth.ts"
 import { cn } from "#src/lib/cn.ts"
 import { dealsQueryOptions, invalidateDealQueries } from "#src/lib/deals.ts"
 import { dealStatusLabels } from "#src/lib/labels.ts"
-import { isVisibleSellerId, sellersQueryOptions } from "#src/lib/leads.ts"
+import { ensureSellersIfPermitted, isVisibleSellerId } from "#src/lib/leads.ts"
+import { isDesktop } from "#src/lib/media.ts"
 import { useUrlSearch } from "#src/lib/use-url-search.ts"
 
 export const Route = createFileRoute("/_authenticated/deals/")({
@@ -47,9 +48,7 @@ export const Route = createFileRoute("/_authenticated/deals/")({
   },
   // Search params are not loader deps: the list query lives in the component so filtering keeps the page mounted.
   loader: async ({ context }) => {
-    const user = await context.queryClient.ensureQueryData(meQueryOptions)
-    if (hasPermission(user, "deal.see_all"))
-      await context.queryClient.ensureQueryData(sellersQueryOptions)
+    await ensureSellersIfPermitted(context.queryClient, "deal.see_all")
   },
   component: DealBoard,
 })
@@ -256,7 +255,7 @@ function DealBoard() {
                 }
                 onCloseRequest={(deal, mode) => setClosing({ deal, mode })}
                 onCommentRequest={(deal) => {
-                  if (window.matchMedia("(min-width: 1024px)").matches)
+                  if (isDesktop())
                     void navigate({
                       search: (previous) => ({ ...previous, dealId: deal.id, focus: "comment" }),
                     })

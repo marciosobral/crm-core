@@ -6,13 +6,13 @@ import {
   hasPermission,
   InvalidDealLead,
   InvalidDealSeller,
+  type User,
 } from "@crm/contract"
 import { Effect, Option } from "effect"
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
 import { requirePermission } from "#src/auth/permissions.ts"
 import { LeadsRepository } from "#src/leads/repository.ts"
-import { nullIfBlank } from "#src/platform/text.ts"
-import { failUnavailable } from "#src/platform/unavailable.ts"
+import { failUnavailable, nullIfBlank } from "#src/platform/http.ts"
 import { SellersRepository } from "#src/sellers/repository.ts"
 import { DealsRepository } from "./repository.ts"
 
@@ -21,6 +21,14 @@ export const DealsLive = HttpApiBuilder.group(CrmApi, "deals", (handlers) =>
     const deals = yield* DealsRepository
     const sellers = yield* SellersRepository
     const leads = yield* LeadsRepository
+
+    const findVisibleDeal = (user: User, id: string) =>
+      Effect.gen(function* () {
+        const scope = hasPermission(user, "deal.see_all") ? {} : { sellerId: user.id }
+        const deal = yield* deals.findById(id, scope)
+        if (Option.isNone(deal)) return yield* new HttpApiError.NotFound()
+        return deal.value
+      })
 
     return handlers
       .handle("list", ({ query }) =>
@@ -38,15 +46,13 @@ export const DealsLive = HttpApiBuilder.group(CrmApi, "deals", (handlers) =>
       .handle("get", ({ params }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          const scope = hasPermission(user, "deal.see_all") ? {} : { sellerId: user.id }
-          const deal = yield* deals.findById(params.id, scope)
-          if (Option.isNone(deal)) return yield* new HttpApiError.NotFound()
+          const deal = yield* findVisibleDeal(user, params.id)
           const lead = yield* leads.findById(
-            deal.value.lead.id,
+            deal.lead.id,
             hasPermission(user, "deal.see_all") ? {} : { activitySellerId: user.id },
           )
           if (Option.isNone(lead)) return yield* Effect.die(new Error("Deal lead not found"))
-          return new DealDetails({ deal: deal.value, lead: lead.value })
+          return new DealDetails({ deal, lead: lead.value })
         }).pipe(Effect.catchTag("SqlError", failUnavailable)),
       )
       .handle("create", ({ payload }) =>
@@ -81,9 +87,7 @@ export const DealsLive = HttpApiBuilder.group(CrmApi, "deals", (handlers) =>
       .handle("move", ({ params, payload }) =>
         Effect.gen(function* () {
           const user = yield* requirePermission("deal.move")
-          const scope = hasPermission(user, "deal.see_all") ? {} : { sellerId: user.id }
-          if (Option.isNone(yield* deals.findById(params.id, scope)))
-            return yield* new HttpApiError.NotFound()
+          yield* findVisibleDeal(user, params.id)
           const moved = yield* deals.moveOpen(params.id, payload.status, user.id)
           if (Option.isNone(moved)) return yield* new DealClosed()
           yield* Effect.logInfo("Deal moved").pipe(
@@ -95,9 +99,7 @@ export const DealsLive = HttpApiBuilder.group(CrmApi, "deals", (handlers) =>
       .handle("close", ({ params, payload }) =>
         Effect.gen(function* () {
           const user = yield* requirePermission("deal.close")
-          const scope = hasPermission(user, "deal.see_all") ? {} : { sellerId: user.id }
-          if (Option.isNone(yield* deals.findById(params.id, scope)))
-            return yield* new HttpApiError.NotFound()
+          yield* findVisibleDeal(user, params.id)
           const closed = yield* deals.close(
             params.id,
             payload.result === "WON"
@@ -115,18 +117,14 @@ export const DealsLive = HttpApiBuilder.group(CrmApi, "deals", (handlers) =>
       .handle("listActivities", ({ params }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          const scope = hasPermission(user, "deal.see_all") ? {} : { sellerId: user.id }
-          if (Option.isNone(yield* deals.findById(params.id, scope)))
-            return yield* new HttpApiError.NotFound()
+          yield* findVisibleDeal(user, params.id)
           return yield* deals.listActivities(params.id)
         }).pipe(Effect.catchTag("SqlError", failUnavailable)),
       )
       .handle("comment", ({ params, payload }) =>
         Effect.gen(function* () {
           const user = yield* requirePermission("deal.comment")
-          const scope = hasPermission(user, "deal.see_all") ? {} : { sellerId: user.id }
-          if (Option.isNone(yield* deals.findById(params.id, scope)))
-            return yield* new HttpApiError.NotFound()
+          yield* findVisibleDeal(user, params.id)
           const comment = yield* deals.addComment({
             dealId: params.id,
             authorId: user.id,

@@ -1,10 +1,10 @@
+import { commentMaxLength } from "@crm/contract"
 import { ArrowRight, ArrowUpRight } from "lucide-react"
 import { type KeyboardEvent, useId, useState } from "react"
 import { cn } from "#src/lib/cn.ts"
 import { useAddComment } from "#src/lib/use-add-comment.ts"
 
-const maxLength = 2000
-const counterThreshold = 1800
+const counterThreshold = commentMaxLength - 200
 
 type CommentComposerProps = {
   dealId: string
@@ -67,7 +67,7 @@ export function CommentComposer({
           }}
           aria-label="Comentário"
           rows={1}
-          maxLength={maxLength}
+          maxLength={commentMaxLength}
           value={body}
           placeholder={placeholder}
           onChange={(event) => setBody(event.target.value)}
@@ -97,7 +97,7 @@ export function CommentComposer({
       </div>
       {body.length >= counterThreshold && (
         <p className="text-right text-xs text-muted">
-          {body.length}/{maxLength}
+          {body.length}/{commentMaxLength}
         </p>
       )}
       {addComment.isError && (

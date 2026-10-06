@@ -2,8 +2,8 @@ import { NodeHttpServer } from "@effect/platform-node"
 import { expect, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 import { HttpClient, HttpClientRequest, HttpRouter } from "effect/unstable/http"
-import { demoPassword, TestDatabase } from "#src/testing/database.ts"
-import { makeTestApi } from "#src/testing/http.ts"
+import { demoPassword, seededEmails, TestDatabase } from "#src/testing/database.ts"
+import { makeTestApi, sessionCookieOf } from "#src/testing/http.ts"
 import { ApiRoutes } from "./server.ts"
 
 const ServerTestLayer = HttpRouter.serve(ApiRoutes, { disableLogger: true }).pipe(
@@ -17,7 +17,7 @@ it.live("rejects request bodies above the size limit", () =>
     const response = yield* client.execute(
       HttpClientRequest.post("/auth/login").pipe(
         HttpClientRequest.bodyJsonUnsafe({
-          email: "demo@crm-core.dev",
+          email: seededEmails.demo,
           password: "a".repeat(100 * 1024),
         }),
       ),
@@ -72,7 +72,7 @@ const loginWithOrigin = (origin: string) =>
   new Request("http://localhost/auth/login", {
     method: "POST",
     headers: { "content-type": "application/json", origin },
-    body: JSON.stringify({ email: "demo@crm-core.dev", password: demoPassword }),
+    body: JSON.stringify({ email: seededEmails.demo, password: demoPassword }),
   })
 
 it.effect("rejects unsafe requests from a foreign origin before running the handler", () =>
@@ -85,7 +85,7 @@ it.effect("rejects unsafe requests from a foreign origin before running the hand
 
     const login = yield* send(loginWithOrigin(allowedOrigin))
     expect(login.status).toBe(200)
-    const cookie = login.headers.get("set-cookie")?.split(";")[0] ?? ""
+    const cookie = sessionCookieOf(login)
 
     const blockedLogout = yield* send(
       new Request("http://localhost/auth/logout", {

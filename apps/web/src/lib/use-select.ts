@@ -66,7 +66,7 @@ export function useSelect({
   const [activeIndex, setActiveIndex] = useState(-1)
   // undefined until the user types; while open it replaces the selected label in the search input.
   const [typedText, setTypedText] = useState<string | undefined>(undefined)
-  // The text the server results on screen were requested for.
+  // Text the on-screen server results were fetched for; lags typedText until the debounced search fires.
   const [searchedText, setSearchedText] = useState("")
   const containerRef = useRef<HTMLDivElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)

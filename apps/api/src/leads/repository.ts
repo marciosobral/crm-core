@@ -1,8 +1,7 @@
 import { DealStatus, Lead, LeadLastActivity, LeadSource, Seller } from "@crm/contract"
 import { Context, Effect, Layer, Option, Schema } from "effect"
 import { SqlClient, type SqlError, SqlSchema } from "effect/unstable/sql"
-import { dieOnSchemaError } from "#src/platform/schema-defects.ts"
-import { escapeLikePattern } from "#src/platform/sql-like.ts"
+import { dieOnMissingRow, dieOnSchemaError, escapeLikePattern } from "#src/platform/sql.ts"
 
 const LeadRow = Schema.Struct({
   id: Schema.String,
@@ -180,10 +179,7 @@ export const LeadsRepositoryLive = Layer.effect(
           const row = yield* findLeadRow({ id })
           if (Option.isNone(row)) return yield* Effect.die(new Error("Inserted lead not found"))
           return toLead(row.value)
-        }).pipe(
-          Effect.catchTag("NoSuchElementError", (error) => Effect.die(error)),
-          dieOnSchemaError,
-        ),
+        }).pipe(dieOnMissingRow, dieOnSchemaError),
     }
   }),
 )
