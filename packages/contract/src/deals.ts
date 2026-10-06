@@ -83,6 +83,37 @@ export class DealDetails extends Schema.Class<DealDetails>("DealDetails")({
   lead: Lead,
 }) {}
 
+const activityFields = {
+  id: Schema.String,
+  author: Seller,
+  createdAt: Schema.DateTimeUtcFromString,
+}
+
+export const DealComment = Schema.Struct({
+  kind: Schema.Literal("COMMENT"),
+  ...activityFields,
+  body: Schema.String,
+})
+export type DealComment = typeof DealComment.Type
+
+export const DealActivity = Schema.Union([
+  DealComment,
+  Schema.Struct({ kind: Schema.Literal("CREATED"), ...activityFields }),
+  Schema.Struct({ kind: Schema.Literal("SELLER_ASSIGNED"), ...activityFields, seller: Seller }),
+  Schema.Struct({
+    kind: Schema.Literal("STATUS_CHANGED"),
+    ...activityFields,
+    status: OpenDealStatus,
+  }),
+  Schema.Struct({ kind: Schema.Literal("WON"), ...activityFields }),
+  Schema.Struct({ kind: Schema.Literal("LOST"), ...activityFields, lostReason: LostReason }),
+])
+export type DealActivity = typeof DealActivity.Type
+
+export const AddDealCommentPayload = Schema.Struct({
+  body: Schema.Trim.check(Schema.isNonEmpty(), Schema.isMaxLength(2000)),
+})
+
 export class InvalidDealLead extends Schema.TaggedError<InvalidDealLead>()(
   "InvalidDealLead",
   {},
@@ -152,5 +183,20 @@ export class DealsGroup extends HttpApiGroup.make("deals")
         DealClosed,
         HttpApiError.ServiceUnavailable,
       ],
+    }).middleware(Authorization),
+  )
+  .add(
+    HttpApiEndpoint.get("listActivities", "/deals/:id/activities", {
+      params: { id: Schema.String.check(Schema.isUUID()) },
+      success: Schema.Array(DealActivity),
+      error: [HttpApiError.NotFound, HttpApiError.ServiceUnavailable],
+    }).middleware(Authorization),
+  )
+  .add(
+    HttpApiEndpoint.post("comment", "/deals/:id/comments", {
+      params: { id: Schema.String.check(Schema.isUUID()) },
+      payload: AddDealCommentPayload,
+      success: DealComment.pipe(HttpApiSchema.status(201)),
+      error: [HttpApiError.Forbidden, HttpApiError.NotFound, HttpApiError.ServiceUnavailable],
     }).middleware(Authorization),
   ) {}

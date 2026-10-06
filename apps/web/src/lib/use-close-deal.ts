@@ -1,8 +1,7 @@
 import type { CloseDealPayload, Deal } from "@crm/contract"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { runApi } from "./api-client.ts"
-import { dealDetailsQueryKey, dealsQueryKey } from "./deals.ts"
-import { leadsQueryKey } from "./leads.ts"
+import { invalidateDealQueries } from "./deals.ts"
 
 export function useCloseDeal({ onClosed }: { onClosed?: (deal: Deal) => void } = {}) {
   const queryClient = useQueryClient()
@@ -15,11 +14,6 @@ export function useCloseDeal({ onClosed }: { onClosed?: (deal: Deal) => void } =
           : client.deals.close({ params: { id: deal.id }, payload }),
       ),
     onSuccess: (closed) => onClosed?.(closed),
-    onSettled: () =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: [dealsQueryKey] }),
-        queryClient.invalidateQueries({ queryKey: [dealDetailsQueryKey] }),
-        queryClient.invalidateQueries({ queryKey: [leadsQueryKey] }),
-      ]),
+    onSettled: () => invalidateDealQueries(queryClient),
   })
 }

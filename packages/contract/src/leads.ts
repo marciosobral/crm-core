@@ -15,6 +15,11 @@ export const LeadSource = Schema.Literals([
 ])
 export type LeadSource = typeof LeadSource.Type
 
+export class LeadLastActivity extends Schema.Class<LeadLastActivity>("LeadLastActivity")({
+  at: Schema.DateTimeUtcFromString,
+  authorName: Schema.String,
+}) {}
+
 export class Lead extends Schema.Class<Lead>("Lead")({
   id: Schema.String,
   name: Schema.String,
@@ -27,6 +32,7 @@ export class Lead extends Schema.Class<Lead>("Lead")({
   seller: Seller,
   status: DealStatus,
   createdAt: Schema.DateTimeUtcFromString,
+  lastActivity: Schema.NullOr(LeadLastActivity),
 }) {}
 
 const trimmedText = (max: number) => Schema.Trim.check(Schema.isMaxLength(max))

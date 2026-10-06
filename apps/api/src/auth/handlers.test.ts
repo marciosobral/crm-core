@@ -223,6 +223,7 @@ it.effect("returns the role and permissions of the current user", () =>
             "deal.assign_any",
             "deal.move",
             "deal.close",
+            "deal.comment",
           ],
         },
       },
@@ -231,7 +232,7 @@ it.effect("returns the role and permissions of the current user", () =>
         password: "seller-test-password",
         expected: {
           role: "SELLER",
-          permissions: ["lead.create", "deal.create", "deal.move", "deal.close"],
+          permissions: ["lead.create", "deal.create", "deal.move", "deal.close", "deal.comment"],
         },
       },
     ]

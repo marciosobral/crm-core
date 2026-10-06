@@ -58,14 +58,14 @@ Decisions: a loss needs a reason from a closed set (price, competitor, no budget
 
 ## 5. Comments
 
-- [ ] `comments` table for leads and deals, with author and timestamp
-- [ ] Contract: add and list comments
-- [ ] Web: comment history on lead and deal details
-- [ ] From the kanban card: add a comment
-- [ ] Lead list: last interaction column
-- [ ] Tests: add, list, comment on a missing lead or deal
+- [x] `deal_comments` and `deal_events` tables, with author and timestamp
+- [x] Contract: add a comment and list a deal's activity (comments and events)
+- [x] Web: activity timeline on the deal details
+- [x] From the kanban card: add a comment
+- [x] Lead list: last interaction column
+- [x] Tests: add, list, comment on a missing deal, events on create, move and close
 
-Open decisions: editing and deleting comments.
+Decisions: comments live on deals only; the timeline mixes comments with system events (created, seller assigned, status changed, won, lost); comments are immutable, with no editing or deleting; the last interaction is the newest comment or event across a lead's deals.
 
 ## 6. AI assistance
 

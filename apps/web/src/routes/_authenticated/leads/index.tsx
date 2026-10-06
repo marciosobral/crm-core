@@ -13,6 +13,7 @@ import { StatusBadge } from "#src/components/ui/status-badge.tsx"
 import { Table, TableCell, TableHead, TableRow } from "#src/components/ui/table.tsx"
 import { meQueryOptions } from "#src/lib/auth.ts"
 import { cn } from "#src/lib/cn.ts"
+import { formatRelative } from "#src/lib/dates.ts"
 import { dealStatusLabels } from "#src/lib/labels.ts"
 import { isVisibleSellerId, leadsQueryOptions, sellersQueryOptions } from "#src/lib/leads.ts"
 import { formatPhone } from "#src/lib/phone.ts"
@@ -166,6 +167,7 @@ function LeadList() {
                   <TableHead>Telefone</TableHead>
                   <TableHead>Status</TableHead>
                   {canSeeAll && <TableHead>Vendedor</TableHead>}
+                  <TableHead>Última Interação</TableHead>
                 </TableRow>
               </thead>
               <tbody>
@@ -179,6 +181,11 @@ function LeadList() {
                       <StatusBadge status={lead.status} />
                     </TableCell>
                     {canSeeAll && <TableCell>{lead.seller.name}</TableCell>}
+                    <TableCell className="text-xs text-placeholder">
+                      {lead.lastActivity
+                        ? `${formatRelative(lead.lastActivity.at, "long")} · ${lead.lastActivity.authorName}`
+                        : "Sem interação"}
+                    </TableCell>
                   </TableRow>
                 ))}
               </tbody>

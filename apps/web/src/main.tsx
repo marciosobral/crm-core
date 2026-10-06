@@ -4,6 +4,7 @@ import { HttpApiError } from "effect/unstable/httpapi"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import { ErrorScreen, PendingScreen } from "./components/layout/status-screen.tsx"
+import { shouldRetryQuery } from "./lib/api-client.ts"
 import { authQueryKey } from "./lib/auth.ts"
 import { routeTree } from "./routeTree.gen.ts"
 import "./styles.css"
@@ -21,11 +22,7 @@ const redirectToLogin = (error: unknown) => {
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: {
-      // Retrying a 401 only delays the login redirect (and retries pause while the tab is hidden).
-      retry: (failureCount, error) =>
-        !(error instanceof HttpApiError.Unauthorized) && failureCount < 3,
-    },
+    queries: { retry: shouldRetryQuery },
   },
   // Skips "auth" queries and mutations: their route guards and handlers already navigate, so handling them here would navigate twice.
   queryCache: new QueryCache({

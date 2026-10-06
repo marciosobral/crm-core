@@ -4,6 +4,7 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { Schema } from "effect"
 import { ArrowLeft } from "lucide-react"
 import { useState } from "react"
+import { ActivityTimeline } from "#src/components/deals/activity-timeline.tsx"
 import { CloseDealDialog } from "#src/components/deals/close-deal-dialog.tsx"
 import { DealSummary, SummaryRow } from "#src/components/deals/deal-summary.tsx"
 import { TopBar } from "#src/components/layout/top-bar.tsx"
@@ -11,21 +12,33 @@ import { variantClasses } from "#src/components/ui/button.tsx"
 import { meQueryOptions } from "#src/lib/auth.ts"
 import { cn } from "#src/lib/cn.ts"
 import { formatDate } from "#src/lib/dates.ts"
-import { dealDetailsQueryOptions } from "#src/lib/deals.ts"
+import {
+  dealActivitiesQueryOptions,
+  dealDetailsQueryOptions,
+  lastContactLabel,
+} from "#src/lib/deals.ts"
 import { formatPhone } from "#src/lib/phone.ts"
 
 const isUuid = Schema.is(Schema.String.check(Schema.isUUID()))
 
 export const Route = createFileRoute("/_authenticated/deals/$dealId")({
+  validateSearch: (search: Record<string, unknown>): { focus?: "comment" } =>
+    search.focus === "comment" ? { focus: "comment" } : {},
   loader: ({ context }) => context.queryClient.ensureQueryData(meQueryOptions),
   component: DealPage,
 })
 
 function DealPage() {
   const { dealId } = Route.useParams()
+  const { focus } = Route.useSearch()
+  const navigate = Route.useNavigate()
   const isValidDealId = isUuid(dealId)
   const { data: user } = useSuspenseQuery(meQueryOptions)
   const detailsQuery = useQuery({ ...dealDetailsQueryOptions(dealId), enabled: isValidDealId })
+  const activitiesQuery = useQuery({
+    ...dealActivitiesQueryOptions(dealId),
+    enabled: isValidDealId,
+  })
   const [closeMode, setCloseMode] = useState<"WON" | "LOST" | undefined>(undefined)
   const details = detailsQuery.data
 
@@ -43,16 +56,17 @@ function DealPage() {
           <span className="sr-only sm:not-sr-only">Voltar para negócios</span>
         </Link>
       </TopBar>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto lg:overflow-hidden">
         {details ? (
-          <div className="grid gap-6 p-4 md:p-8 lg:grid-cols-[minmax(0,420px)_1fr]">
-            <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-6 p-4 md:p-8 lg:h-full lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]">
+            <div className="space-y-6 lg:min-h-0 lg:overflow-y-auto">
               <section className="rounded-xl border border-line bg-surface p-5">
                 <DealSummary
                   deal={details.deal}
                   lead={details.lead}
                   variant="page"
                   canClose={hasPermission(user, "deal.close")}
+                  lastContact={lastContactLabel(activitiesQuery.data, activitiesQuery.isError)}
                   onClose={setCloseMode}
                 />
               </section>
@@ -68,6 +82,10 @@ function DealPage() {
                   <SummaryRow label="Vendedor proprietário" value={details.deal.seller.name} />
                   <SummaryRow label="Data de criação" value={formatDate(details.deal.createdAt)} />
                   <SummaryRow
+                    label="Último contato"
+                    value={lastContactLabel(activitiesQuery.data, activitiesQuery.isError)}
+                  />
+                  <SummaryRow
                     label="Data prevista de fechamento"
                     value={
                       details.deal.expectedCloseDate
@@ -78,6 +96,13 @@ function DealPage() {
                 </dl>
               </section>
             </div>
+            <ActivityTimeline
+              dealId={dealId}
+              activities={activitiesQuery.data}
+              isError={activitiesQuery.isError}
+              shouldFocusComposer={focus === "comment"}
+              onComposerFocused={() => void navigate({ search: {}, replace: true })}
+            />
           </div>
         ) : (
           <div className="p-4 md:p-8">

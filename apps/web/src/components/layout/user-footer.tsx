@@ -1,6 +1,7 @@
 import type { Role } from "@crm/contract"
 import { LogOut } from "lucide-react"
 import { Button } from "#src/components/ui/button.tsx"
+import { initialsOf } from "#src/lib/initials.ts"
 import { roleLabels } from "#src/lib/labels.ts"
 
 type UserFooterProps = {
@@ -8,13 +9,6 @@ type UserFooterProps = {
   onLogout: () => void
   isLoggingOut: boolean
 }
-
-const initialsOf = (name: string) =>
-  name
-    .split(" ")
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join("")
 
 export function UserFooter({ user, onLogout, isLoggingOut }: UserFooterProps) {
   return (

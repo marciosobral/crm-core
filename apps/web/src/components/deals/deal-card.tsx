@@ -5,44 +5,42 @@ import { Option, Schema } from "effect"
 import { useEffect, useRef, useState } from "react"
 import { cn } from "#src/lib/cn.ts"
 import { formatDealValue } from "#src/lib/currency.ts"
+import { initialsOf } from "#src/lib/initials.ts"
 import { dealStatusTextClasses } from "#src/lib/labels.ts"
 import { MoveMenu } from "./move-menu.tsx"
-
-const initialsOf = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("")
 
 type DealCardProps = {
   deal: Deal
   canMove: boolean
   canClose: boolean
+  canComment: boolean
   isSelected: boolean
   onOpen: () => void
   shouldFocusMoveButton: boolean
   onMoveButtonFocused: () => void
   onMove: (status: OpenDealStatus) => void
   onCloseRequest: (mode: "WON" | "LOST") => void
+  onCommentRequest: () => void
 }
 
 export function DealCard({
   deal,
   canMove,
   canClose,
+  canComment,
   isSelected,
   onOpen,
   shouldFocusMoveButton,
   onMoveButtonFocused,
   onMove,
   onCloseRequest,
+  onCommentRequest,
 }: DealCardProps) {
   const ref = useRef<HTMLElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const openStatus = Schema.decodeUnknownOption(OpenDealStatus)(deal.status)
   const isMovable = canMove && Option.isSome(openStatus)
+  const hasMenu = isMovable || canComment
 
   useEffect(() => {
     const element = ref.current
@@ -72,8 +70,8 @@ export function DealCard({
             params={{ dealId: deal.id }}
             draggable={false}
             ref={(link) => {
-              // A closed card has no move button, so its title link is the only element that can take the focus request.
-              if (!shouldFocusMoveButton || Option.isSome(openStatus) || !link) return
+              // A card without the actions menu has no button, so its title link is the only element that can take the focus request.
+              if (!shouldFocusMoveButton || hasMenu || !link) return
               link.focus()
               onMoveButtonFocused()
             }}
@@ -106,16 +104,18 @@ export function DealCard({
       <div className="flex items-center justify-between gap-2">
         <span className="min-w-0 truncate text-xs text-muted">{deal.lead.name}</span>
         <span className="relative z-10 flex shrink-0 items-center gap-1">
-          {isMovable && Option.isSome(openStatus) && (
+          {hasMenu && (
             <MoveMenu
               dealId={deal.id}
               dealTitle={deal.title}
-              currentStatus={openStatus.value}
+              currentStatus={isMovable && Option.isSome(openStatus) ? openStatus.value : undefined}
               canClose={canClose}
+              canComment={canComment}
               shouldFocusButton={shouldFocusMoveButton}
               onButtonFocused={onMoveButtonFocused}
               onMove={onMove}
               onCloseRequest={onCloseRequest}
+              onCommentRequest={onCommentRequest}
             />
           )}
           <span

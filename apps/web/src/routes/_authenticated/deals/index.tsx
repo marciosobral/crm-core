@@ -24,18 +24,19 @@ import { SearchInput } from "#src/components/ui/search-input.tsx"
 import { runApi } from "#src/lib/api-client.ts"
 import { meQueryOptions } from "#src/lib/auth.ts"
 import { cn } from "#src/lib/cn.ts"
-import { dealsQueryKey, dealsQueryOptions } from "#src/lib/deals.ts"
+import { dealsQueryOptions, invalidateDealQueries } from "#src/lib/deals.ts"
 import { dealStatusLabels } from "#src/lib/labels.ts"
-import { isVisibleSellerId, leadsQueryKey, sellersQueryOptions } from "#src/lib/leads.ts"
+import { isVisibleSellerId, sellersQueryOptions } from "#src/lib/leads.ts"
 import { useUrlSearch } from "#src/lib/use-url-search.ts"
 
 export const Route = createFileRoute("/_authenticated/deals/")({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { search?: string; sellerId?: string; dealId?: string } => ({
+  ): { search?: string; sellerId?: string; dealId?: string; focus?: "comment" } => ({
     ...(typeof search.search === "string" ? { search: search.search } : {}),
     ...(typeof search.sellerId === "string" ? { sellerId: search.sellerId } : {}),
     ...(typeof search.dealId === "string" ? { dealId: search.dealId } : {}),
+    ...(search.focus === "comment" ? { focus: "comment" as const } : {}),
   }),
   // Drops a sellerId the UI cannot show (no permission or unknown seller) so the select always matches the applied filter.
   beforeLoad: async ({ context, search }) => {
@@ -63,7 +64,7 @@ const dealCountLabel = (count: number) => {
 
 function DealBoard() {
   const search = Route.useSearch()
-  const { dealId: selectedDealId, ...filters } = search
+  const { dealId: selectedDealId, focus, ...filters } = search
   const navigate = Route.useNavigate()
   const { data: user } = useSuspenseQuery(meQueryOptions)
   const dealsQuery = useQuery({ ...dealsQueryOptions(filters), placeholderData: keepPreviousData })
@@ -89,6 +90,7 @@ function DealBoard() {
   const canCreate = hasPermission(user, "deal.create")
   const canMove = hasPermission(user, "deal.move")
   const canClose = hasPermission(user, "deal.close")
+  const canComment = hasPermission(user, "deal.comment")
   const deals = dealsQuery.data
 
   const moveMutation = useMutation({
@@ -119,11 +121,7 @@ function DealBoard() {
       setMoveError(undefined)
       setAnnouncement(`Negócio "${deal.title}" movido para ${dealStatusLabels[status]}.`)
     },
-    onSettled: () =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: [dealsQueryKey] }),
-        queryClient.invalidateQueries({ queryKey: [leadsQueryKey] }),
-      ]),
+    onSettled: () => invalidateDealQueries(queryClient),
   })
 
   const moveDroppedDeal = useEffectEvent((dealId: unknown, targetStatus: unknown) => {
@@ -244,9 +242,12 @@ function DealBoard() {
                 deals={deals.filter((deal) => column.statuses.includes(deal.status))}
                 canMove={canMove}
                 canClose={canClose}
+                canComment={canComment}
                 selectedDealId={selectedDealId}
                 onOpenDeal={(deal) =>
-                  void navigate({ search: (previous) => ({ ...previous, dealId: deal.id }) })
+                  void navigate({
+                    search: ({ focus: _focus, ...previous }) => ({ ...previous, dealId: deal.id }),
+                  })
                 }
                 focusRequest={focusRequest}
                 onMoveButtonFocused={() => setFocusRequest(undefined)}
@@ -254,6 +255,18 @@ function DealBoard() {
                   moveMutation.mutate({ deal, status, shouldRefocus: true })
                 }
                 onCloseRequest={(deal, mode) => setClosing({ deal, mode })}
+                onCommentRequest={(deal) => {
+                  if (window.matchMedia("(min-width: 1024px)").matches)
+                    void navigate({
+                      search: (previous) => ({ ...previous, dealId: deal.id, focus: "comment" }),
+                    })
+                  else
+                    void navigate({
+                      to: "/deals/$dealId",
+                      params: { dealId: deal.id },
+                      search: { focus: "comment" },
+                    })
+                }}
               />
             ))}
           </div>
@@ -261,7 +274,15 @@ function DealBoard() {
             <DealPanel
               key={selectedDealId}
               dealId={selectedDealId}
-              onDismiss={() => void navigate({ search: ({ dealId: _dealId, ...rest }) => rest })}
+              shouldFocusComposer={focus === "comment"}
+              onComposerFocused={() =>
+                void navigate({ search: ({ focus: _focus, ...rest }) => rest, replace: true })
+              }
+              onDismiss={() =>
+                void navigate({
+                  search: ({ dealId: _dealId, focus: _focus, ...rest }) => rest,
+                })
+              }
             />
           )}
         </div>
