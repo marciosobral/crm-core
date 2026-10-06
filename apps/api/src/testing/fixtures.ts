@@ -124,7 +124,6 @@ export const thisMonth = { kind: "THIS_MONTH", days: null, from: null, to: null 
 export const firstToolResult = (messages: PromptMessages | undefined) =>
   messages === undefined ? undefined : toolResultsIn(messages)[0]?.result
 
-// The deals, leads and sellers repositories on a database that a test API already seeded.
 export const repositoriesOn = (sql: SqlClient.SqlClient) =>
   Layer.mergeAll(DealsRepositoryLive, LeadsRepositoryLive, SellersRepositoryLive).pipe(
     Layer.provideMerge(DateTime.layerCurrentZoneNamed(businessTimeZone).pipe(Layer.orDie)),

@@ -76,7 +76,8 @@ const NewMessage = Schema.Struct({
 export class ConversationsRepository extends Context.Service<
   ConversationsRepository,
   {
-    // create and appendMessage are only called by saveExchange and by tests that seed conversations.
+    // create and appendMessage are not atomic on their own: only saveExchange (one transaction) and
+    // test seeding call them, so a failed reply never leaves an orphan user message.
     readonly create: (
       userId: string,
       title: string,

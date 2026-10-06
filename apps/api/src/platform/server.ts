@@ -29,8 +29,8 @@ import { DatabaseLive } from "./db.ts"
 
 const maxBodySize = ByteSize.kibibytes(64)
 
-// MaxBodySize alone aborts the connection without a response, so declared oversized
-// bodies are answered with 413 up front; the reference still caps chunked bodies.
+// MaxBodySize alone aborts the connection without a response, so a body whose declared length is
+// too large gets a 413 up front; MaxBodySize still caps chunked bodies that declare no length.
 const BodySizeLimit = HttpRouter.middleware(
   (httpEffect) =>
     Effect.gen(function* () {

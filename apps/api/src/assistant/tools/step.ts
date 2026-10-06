@@ -52,7 +52,6 @@ export interface ChatToolset {
 export class ChatTools extends Context.Service<
   ChatTools,
   {
-    // Builds, for one request, the tools this user may call and the model step that runs them.
     readonly forUser: (
       user: User,
       links: LinkCollector,

@@ -81,7 +81,6 @@ export function useSelect({
   const selectedOption = options.find((option) => option.value === value)
   const fallbackLabel = value === "" ? undefined : selectedLabel
   const selectedText = selectedOption?.label ?? fallbackLabel ?? ""
-  // Until the debounced search fires, the options on screen belong to a previous search.
   const isStale = isServerSearch && typedText !== undefined && typedText !== searchedText
   const isLoadingShown = isLoading || isStale
   const visibleOptions =

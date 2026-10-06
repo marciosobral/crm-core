@@ -1,6 +1,7 @@
 import { TooManyLoginAttempts } from "@crm/contract"
 import { expect, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
+import { TestClock } from "effect/testing"
 import { demoPassword, seededEmails, sellerPassword } from "#src/testing/database.ts"
 import { jsonOf, loginRequest, makeTestApi, type Send, sessionCookieOf } from "#src/testing/http.ts"
 
@@ -177,17 +178,160 @@ it.effect("limits each account independently", () =>
   }).pipe(Effect.scoped),
 )
 
-it.effect("admits exactly five of ten parallel wrong-password logins", () =>
+const wrongPasswordsFrom = (
+  send: Send,
+  clientIp: string,
+  count: number,
+  emailOf = (index: number) => `flood-${index}@crm-core.dev`,
+) =>
+  Effect.forEach(Array.from({ length: count }), (_, index) =>
+    send(loginRequest(emailOf(index), "wrong-password", clientIp)),
+  )
+
+const demoOf = () => seededEmails.demo
+const clients = ["203.0.113.1", "203.0.113.2", "203.0.113.3", "203.0.113.4"]
+
+it.effect("locks an account for the failing client without locking other clients", () =>
   Effect.gen(function* () {
     const { send } = yield* makeTestApi
+    yield* wrongPasswordsFrom(send, "203.0.113.1", 5, demoOf)
+    expect((yield* send(loginRequest(seededEmails.demo, demoPassword, "203.0.113.1"))).status).toBe(
+      429,
+    )
+    expect((yield* send(loginRequest(seededEmails.demo, demoPassword, "203.0.113.2"))).status).toBe(
+      200,
+    )
+  }).pipe(Effect.scoped),
+)
+
+it.effect("locks an account everywhere after 20 failures from different clients", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    for (const clientIp of clients)
+      for (const response of yield* wrongPasswordsFrom(send, clientIp, 5, demoOf))
+        expect(response.status).toBe(401)
+    expect((yield* send(loginRequest(seededEmails.demo, demoPassword, "203.0.113.5"))).status).toBe(
+      429,
+    )
+    expect(
+      (yield* send(loginRequest(seededEmails.ana, sellerPassword, "203.0.113.5"))).status,
+    ).toBe(200)
+  }).pipe(Effect.scoped),
+)
+
+it.effect("keeps a known client logging in while strangers exceed the per-email limit", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    expect((yield* send(loginRequest(seededEmails.demo, demoPassword, "203.0.113.9"))).status).toBe(
+      200,
+    )
+    for (const clientIp of clients) yield* wrongPasswordsFrom(send, clientIp, 5, demoOf)
+    expect((yield* send(loginRequest(seededEmails.demo, demoPassword, "203.0.113.5"))).status).toBe(
+      429,
+    )
+    expect((yield* send(loginRequest(seededEmails.demo, demoPassword, "203.0.113.9"))).status).toBe(
+      200,
+    )
+  }).pipe(Effect.scoped),
+)
+
+it.effect(
+  "clears the failures of that client after a successful login, keeping other clients' counts",
+  () =>
+    Effect.gen(function* () {
+      const { send } = yield* makeTestApi
+      yield* wrongPasswordsFrom(send, "203.0.113.1", 4, demoOf)
+      yield* wrongPasswordsFrom(send, "203.0.113.2", 4, demoOf)
+      expect(
+        (yield* send(loginRequest(seededEmails.demo, demoPassword, "203.0.113.1"))).status,
+      ).toBe(200)
+      for (const response of yield* wrongPasswordsFrom(send, "203.0.113.1", 5, demoOf))
+        expect(response.status).toBe(401)
+      expect(
+        (yield* send(loginRequest(seededEmails.demo, "wrong-password", "203.0.113.2"))).status,
+      ).toBe(401)
+      expect(
+        (yield* send(loginRequest(seededEmails.demo, "wrong-password", "203.0.113.2"))).status,
+      ).toBe(429)
+    }).pipe(Effect.scoped),
+)
+
+it.effect("blocks the 21st login attempt from one client in a minute with 429", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    for (const response of yield* wrongPasswordsFrom(send, "203.0.113.1", 20))
+      expect(response.status).toBe(401)
+    const blocked = yield* send(loginRequest(seededEmails.demo, demoPassword, "203.0.113.1"))
+    expect(blocked.status).toBe(429)
+    expect(yield* jsonOf(blocked)).toMatchObject({ _tag: "TooManyLoginAttempts" })
+    expect(blocked.headers.get("retry-after")).toBe("60")
+    expect(blocked.headers.get("set-cookie")).toBeNull()
+  }).pipe(Effect.scoped),
+)
+
+it.effect("rejects over-limit attempts before they reserve the email", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    yield* wrongPasswordsFrom(send, "203.0.113.1", 4, demoOf)
+    yield* wrongPasswordsFrom(send, "203.0.113.1", 16)
+    const blocked = yield* send(loginRequest(seededEmails.demo, "wrong-password", "203.0.113.1"))
+    expect(blocked.status).toBe(429)
+    yield* TestClock.adjust("1 minute")
+    const fifthFailure = yield* send(
+      loginRequest(seededEmails.demo, "wrong-password", "203.0.113.1"),
+    )
+    expect(fifthFailure.status).toBe(401)
+  }).pipe(Effect.scoped),
+)
+
+it.effect("refuses parallel verifications from one client without counting them as failures", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    const unknownEmail = "nobody@crm-core.dev"
     const responses = yield* Effect.forEach(
-      Array.from({ length: 10 }),
-      () => send(loginRequest(seededEmails.demo, "wrong-password")),
+      Array.from({ length: 4 }),
+      () => send(loginRequest(unknownEmail, "wrong-password", "203.0.113.1")),
       { concurrency: "unbounded" },
     )
-    const statuses = responses.map((response) => response.status)
-    expect(statuses.filter((status) => status === 401)).toHaveLength(5)
-    expect(statuses.filter((status) => status === 429)).toHaveLength(5)
+    const refused = responses.filter((response) => response.status === 429)
+    expect(refused.length).toBeGreaterThanOrEqual(1)
+    for (const response of refused) expect(response.headers.get("retry-after")).toBe("1")
+    const failures = responses.length - refused.length
+    expect(responses.filter((response) => response.status === 401)).toHaveLength(failures)
+    for (const response of yield* Effect.forEach(Array.from({ length: 5 - failures }), () =>
+      send(loginRequest(unknownEmail, "wrong-password", "203.0.113.1")),
+    ))
+      expect(response.status).toBe(401)
+    expect((yield* send(loginRequest(unknownEmail, "wrong-password", "203.0.113.1"))).status).toBe(
+      429,
+    )
+  }).pipe(Effect.scoped),
+)
+
+it.effect("limits each client independently and frees it after the minute", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    yield* wrongPasswordsFrom(send, "203.0.113.1", 20)
+    expect((yield* send(loginRequest(seededEmails.demo, demoPassword, "203.0.113.2"))).status).toBe(
+      200,
+    )
+    yield* TestClock.adjust("1 minute")
+    expect((yield* send(loginRequest(seededEmails.demo, demoPassword, "203.0.113.1"))).status).toBe(
+      200,
+    )
+  }).pipe(Effect.scoped),
+)
+
+it.effect("counts successful logins toward the client limit", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    for (const response of yield* Effect.forEach(Array.from({ length: 20 }), () =>
+      send(loginRequest(seededEmails.demo, demoPassword, "203.0.113.1")),
+    ))
+      expect(response.status).toBe(200)
+    expect((yield* send(loginRequest(seededEmails.demo, demoPassword, "203.0.113.1"))).status).toBe(
+      429,
+    )
   }).pipe(Effect.scoped),
 )
 

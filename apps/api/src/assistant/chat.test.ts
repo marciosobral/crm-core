@@ -28,7 +28,6 @@ import {
 } from "#src/testing/language-model.ts"
 import { fixedReplies, guardFallbackReply, unfinishedChatReply } from "./answer.ts"
 
-// The conversation as the model received it, without the system message: role and text per message.
 const conversationOf = (messages: PromptMessages | undefined) =>
   (messages ?? [])
     .filter(({ role }) => role === "user" || role === "assistant")

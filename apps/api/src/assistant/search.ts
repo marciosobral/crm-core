@@ -50,7 +50,6 @@ const decodeLeadQueryOption = Schema.decodeUnknownOption(ListLeadsQuery)
 const isValidFilter = (key: string, value: unknown) =>
   Option.isSome(decodeFilters({ [key]: value }))
 
-// The seller the user named, when the user may filter by seller and the name matches exactly one.
 const sellerFilterFor = (
   sellerName: string | null,
   { sellers, canFilterBySeller }: SearchContext,

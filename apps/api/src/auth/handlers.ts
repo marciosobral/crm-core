@@ -6,9 +6,10 @@ import {
   TooManyLoginAttempts,
 } from "@crm/contract"
 import { Effect, Option, Redacted, Result } from "effect"
-import { HttpEffect, HttpServerResponse } from "effect/unstable/http"
+import { HttpEffect, HttpServerRequest, HttpServerResponse } from "effect/unstable/http"
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
 import { failUnavailable } from "#src/platform/http.ts"
+import { clientIpOf } from "./client-ip.ts"
 import { LoginAttempts } from "./login-attempts.ts"
 import { hashPassword, verifyPassword } from "./password.ts"
 import { AuthRepository, toUser } from "./repository.ts"
@@ -27,9 +28,11 @@ export const AuthLive = HttpApiBuilder.group(CrmApi, "auth", (handlers) =>
       .handle("login", ({ payload }) =>
         Effect.gen(function* () {
           const password = Redacted.make(payload.password)
+          const clientIp = clientIpOf(yield* HttpServerRequest.HttpServerRequest)
           const verifyLogin = Effect.gen(function* () {
             const row = Option.getOrUndefined(yield* repository.findUserByEmail(payload.email))
             const isValid = yield* loginAttempts.withVerificationSlot(
+              clientIp,
               verifyPassword(password, row?.passwordHash ?? dummyHash),
             )
             return { row, isValid }
@@ -40,35 +43,42 @@ export const AuthLive = HttpApiBuilder.group(CrmApi, "auth", (handlers) =>
               ),
             ),
           )
+          const rejectRateLimited = (retryAfterSeconds: number) =>
+            Effect.gen(function* () {
+              yield* HttpEffect.appendPreResponseHandler((_request, response) =>
+                Effect.succeed(
+                  HttpServerResponse.setHeader(response, "retry-after", String(retryAfterSeconds)),
+                ),
+              )
+              yield* Effect.logInfo("Login rate limited")
+              return yield* new TooManyLoginAttempts({ retryAfterSeconds })
+            })
           // Uninterruptible so no interruption can land between reserving and registering the release.
+          // A request refused for parallel verifications releases its email reservation like any
+          // other error, so it never counts as a failed password.
           const verification = yield* Effect.uninterruptibleMask((restore) =>
             Effect.gen(function* () {
-              const reservation = yield* loginAttempts.reserveAttempt(payload.email)
+              const clientReservation = yield* loginAttempts.reserveClientAttempt(clientIp)
+              if (Result.isFailure(clientReservation)) return Result.fail(clientReservation.failure)
+              const reservation = yield* loginAttempts.reserveAttempt(payload.email, clientIp)
               if (Result.isFailure(reservation)) return Result.fail(reservation.failure)
               const reservedAt = reservation.success
               return Result.succeed(
                 yield* restore(verifyLogin).pipe(
-                  Effect.onError(() => loginAttempts.releaseAttempt(payload.email, reservedAt)),
+                  Effect.onError(() =>
+                    loginAttempts.releaseAttempt(payload.email, clientIp, reservedAt),
+                  ),
                 ),
               )
             }),
-          )
-          if (Result.isFailure(verification)) {
-            const retryAfterSeconds = verification.failure
-            yield* HttpEffect.appendPreResponseHandler((_request, response) =>
-              Effect.succeed(
-                HttpServerResponse.setHeader(response, "retry-after", String(retryAfterSeconds)),
-              ),
-            )
-            yield* Effect.logInfo("Login rate limited")
-            return yield* new TooManyLoginAttempts({ retryAfterSeconds })
-          }
+          ).pipe(Effect.catchTag("ClientVerificationBusy", () => rejectRateLimited(1)))
+          if (Result.isFailure(verification)) return yield* rejectRateLimited(verification.failure)
           const { row, isValid } = verification.success
           if (!row || !isValid) {
             yield* Effect.logInfo("Login rejected")
             return yield* new InvalidCredentials()
           }
-          yield* loginAttempts.clear(payload.email)
+          yield* loginAttempts.clear(payload.email, clientIp)
           yield* repository.deleteExpiredSessions(row.id)
           const token = makeSessionToken()
           yield* repository.createSession({ id: hashSessionToken(token), userId: row.id })

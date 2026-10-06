@@ -82,7 +82,7 @@ export const guardReason = (
   return null
 }
 
-// The model sometimes punctuates with dashes however the prompt asks otherwise; a comma reads the
+// The model sometimes punctuates with dashes even though the prompt forbids them; a comma reads the
 // same in Portuguese.
 export const withoutDashPunctuation = (text: string) =>
   text

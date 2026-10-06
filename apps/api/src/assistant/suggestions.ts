@@ -39,10 +39,10 @@ interface Template {
   readonly applies: Effect.Effect<boolean, SqlError.SqlError>
 }
 
-// One question per category (numbers, pipeline, attention, leads, team or usage), drawn at random
-// among the templates whose answer is not empty for this user: every template runs a cheap
-// existence check inside the user's own scope. Categories without an applicable template are
-// filled with how-to questions, so the list reaches maxSuggestions whenever possible.
+// One question per category (sales, pipeline, attention, leads, and team for supervisors or how-to
+// for sellers), drawn at random among the templates whose cheap existence check passes in the
+// user's own scope. Missing picks are filled with other how-to questions, so the list reaches
+// maxSuggestions whenever possible.
 export class Suggestions extends Context.Service<
   Suggestions,
   { readonly forUser: (user: User) => Effect.Effect<ReadonlyArray<string>, SqlError.SqlError> }

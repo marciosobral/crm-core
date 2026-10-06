@@ -43,15 +43,22 @@ export const jsonRequest = (
   path: string,
   body: unknown,
   cookie?: string,
+  extraHeaders: Record<string, string> = {},
 ) =>
   new Request(`http://localhost${path}`, {
     method,
-    headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) },
+    headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}), ...extraHeaders },
     body: JSON.stringify(body),
   })
 
-export const loginRequest = (email: string, password: string) =>
-  jsonRequest("POST", "/auth/login", { email, password })
+export const loginRequest = (email: string, password: string, clientIp?: string) =>
+  jsonRequest(
+    "POST",
+    "/auth/login",
+    { email, password },
+    undefined,
+    clientIp === undefined ? {} : { "cf-connecting-ip": clientIp },
+  )
 
 export const sessionCookieOf = (response: Response) =>
   response.headers.get("set-cookie")?.split(";")[0] ?? ""

@@ -197,9 +197,12 @@ export class DealsRepository extends Context.Service<
       },
       SqlError.SqlError
     >
-    // Sellers are the rows, so a sellerId filter is not accepted.
+    // Sellers are the rows and leads are not joined, so sellerId and search filters are not accepted.
     readonly rankSellers: (
-      filters: Omit<DealFilters, "sellerId"> & { readonly sellerId?: never },
+      filters: Omit<DealFilters, "sellerId" | "search"> & {
+        readonly sellerId?: never
+        readonly search?: never
+      },
       today: string,
     ) => Effect.Effect<
       ReadonlyArray<{

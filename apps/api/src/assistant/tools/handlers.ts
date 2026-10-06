@@ -71,7 +71,7 @@ const unavailable = (error: SqlError.SqlError) =>
 const ownerFallbackOf = (owner: Owner | null, canSeeAll: boolean, sellerId: string | undefined) =>
   owner === "ME" && canSeeAll && sellerId === undefined ? ("SUPERVISOR_TEAM" as const) : null
 
-// A user who sees everyone owns nothing, so a button filtered by their id would open an empty list.
+// A seller filter on the supervisor's own id would open an empty list, so it gets no button.
 const ownsNothing = ({ user }: ToolContext, sellerId: string | undefined, canSeeAll: boolean) =>
   sellerId === user.id && canSeeAll
 
@@ -386,8 +386,8 @@ export const makeToolHandlers = Effect.gen(function* () {
         )
         // A period that could not be applied would rank over all time without saying so.
         if (ignored.length > 0) return { sellers: [], ignored }
-        const { sellerId: _sellerId, ...withoutSeller } = filters
-        const rows = yield* deals.rankSellers(withoutSeller, today)
+        const { sellerId: _sellerId, search: _search, ...rankFilters } = filters
+        const rows = yield* deals.rankSellers(rankFilters, today)
         return {
           sellers: rank(
             rows.map(({ sellerId, sellerName, count, valueCents }) => ({
