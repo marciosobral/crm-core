@@ -92,6 +92,7 @@ Not planned; revisit only if needed.
 - Editing and deleting leads
 - Pagination of the lead list
 - A sellers management screen (sellers come from the seed)
+- A dashboard screen (the design only shows its menu item, not the screen)
 - Editing and deleting deals
 - Manual ordering of deals inside a board column (newest first)
 - Pagination or virtualization of the board columns

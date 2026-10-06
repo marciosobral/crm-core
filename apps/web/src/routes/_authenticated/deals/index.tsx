@@ -1,6 +1,6 @@
 import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter"
 import { autoScrollForElements } from "@atlaskit/pragmatic-drag-and-drop-auto-scroll/element"
-import { Deal, hasPermission, OpenDealStatus } from "@crm/contract"
+import { Deal, DealClosed, hasPermission, OpenDealStatus } from "@crm/contract"
 import {
   keepPreviousData,
   useMutation,
@@ -111,10 +111,14 @@ function DealBoard() {
       if (shouldRefocus) setFocusRequest({ dealId: deal.id, status })
       return { previous }
     },
-    onError: (_error, { deal, shouldRefocus }, context) => {
+    onError: (error, { deal, shouldRefocus }, context) => {
       if (context?.previous) queryClient.setQueryData(listQueryKey, context.previous)
       if (shouldRefocus) setFocusRequest({ dealId: deal.id, status: deal.status })
-      setMoveError(`Não foi possível mover "${deal.title}". Tente novamente.`)
+      setMoveError(
+        error instanceof DealClosed
+          ? `"${deal.title}" já foi fechado e não pode mais ser movido.`
+          : `Não foi possível mover "${deal.title}". Tente novamente.`,
+      )
     },
     onSuccess: (_deal, { deal, status }) => {
       setMoveError(undefined)
