@@ -1,14 +1,23 @@
 import type { DealActivity } from "@crm/contract"
-import { queryOptions } from "@tanstack/react-query"
+import { type QueryClient, queryOptions } from "@tanstack/react-query"
 import { HttpApiError } from "effect/unstable/httpapi"
 import { runApi, shouldRetryQuery } from "./api-client.ts"
 import { formatRelative } from "./dates.ts"
+import { leadsQueryKey } from "./leads.ts"
 
 export const dealsQueryKey = "deals"
 
 export const dealDetailsQueryKey = "deal-details"
 
 export const dealActivitiesQueryKey = "deal-activities"
+
+// A deal change shows up on the board, in its details and timeline, and in the lead's derived status and last interaction.
+export const invalidateDealQueries = (queryClient: QueryClient) =>
+  Promise.all(
+    [dealsQueryKey, dealDetailsQueryKey, dealActivitiesQueryKey, leadsQueryKey].map((key) =>
+      queryClient.invalidateQueries({ queryKey: [key] }),
+    ),
+  )
 
 // A missing deal stays missing, so retrying only delays the "not found" state.
 const retryUnlessNotFound = (failureCount: number, error: Error) =>

@@ -24,9 +24,9 @@ import { SearchInput } from "#src/components/ui/search-input.tsx"
 import { runApi } from "#src/lib/api-client.ts"
 import { meQueryOptions } from "#src/lib/auth.ts"
 import { cn } from "#src/lib/cn.ts"
-import { dealActivitiesQueryKey, dealsQueryKey, dealsQueryOptions } from "#src/lib/deals.ts"
+import { dealsQueryOptions, invalidateDealQueries } from "#src/lib/deals.ts"
 import { dealStatusLabels } from "#src/lib/labels.ts"
-import { isVisibleSellerId, leadsQueryKey, sellersQueryOptions } from "#src/lib/leads.ts"
+import { isVisibleSellerId, sellersQueryOptions } from "#src/lib/leads.ts"
 import { useUrlSearch } from "#src/lib/use-url-search.ts"
 
 export const Route = createFileRoute("/_authenticated/deals/")({
@@ -121,12 +121,7 @@ function DealBoard() {
       setMoveError(undefined)
       setAnnouncement(`Negócio "${deal.title}" movido para ${dealStatusLabels[status]}.`)
     },
-    onSettled: () =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: [dealsQueryKey] }),
-        queryClient.invalidateQueries({ queryKey: [dealActivitiesQueryKey] }),
-        queryClient.invalidateQueries({ queryKey: [leadsQueryKey] }),
-      ]),
+    onSettled: () => invalidateDealQueries(queryClient),
   })
 
   const moveDroppedDeal = useEffectEvent((dealId: unknown, targetStatus: unknown) => {
