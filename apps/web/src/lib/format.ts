@@ -74,7 +74,9 @@ export const formatRelative = (
   if (daysAgo <= 0) return style === "long" ? `Hoje, ${time}` : `Hoje às ${time}`
   if (daysAgo === 1) return style === "long" ? `Ontem, ${time}` : "Ontem"
   const [year, month, dayOfMonth] = day.split("-")
-  const date = `${Number(dayOfMonth)} ${monthAbbreviations[Number(month) - 1]}${year === today.slice(0, 4) ? "" : ` ${year}`}`
+  const dayMonth = `${Number(dayOfMonth)} ${monthAbbreviations[Number(month) - 1]}`
+  const isThisYear = year === today.slice(0, 4)
+  const date = isThisYear ? dayMonth : `${dayMonth} ${year}`
   return style === "long" ? `${date}, ${time}` : date
 }
 

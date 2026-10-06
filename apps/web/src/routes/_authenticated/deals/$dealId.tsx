@@ -41,6 +41,7 @@ function DealPage() {
   })
   const [closeMode, setCloseMode] = useState<"WON" | "LOST" | undefined>(undefined)
   const details = detailsQuery.data
+  const isNotFound = detailsQuery.isError || !isValidDealId
 
   return (
     <div className="flex h-dvh min-w-0 flex-col">
@@ -111,11 +112,9 @@ function DealPage() {
           <div className="p-4 md:p-8">
             <div className="space-y-3 rounded-xl border border-line bg-surface px-4 py-10 text-center">
               <p className="text-sm text-muted">
-                {detailsQuery.isError || !isValidDealId
-                  ? "Negócio não encontrado."
-                  : "Carregando..."}
+                {isNotFound ? "Negócio não encontrado." : "Carregando..."}
               </p>
-              {(detailsQuery.isError || !isValidDealId) && (
+              {isNotFound && (
                 <Link to="/deals" className="text-sm font-semibold text-brand hover:underline">
                   Voltar para negócios
                 </Link>

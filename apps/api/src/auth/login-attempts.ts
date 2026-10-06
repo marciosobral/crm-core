@@ -77,6 +77,13 @@ export const makeLoginAttempts = ({
     const semaphore = yield* Semaphore.make(verificationPermits)
     const inFlightVerifications = yield* Ref.make(0)
 
+    const admitVerification = Ref.modify(inFlightVerifications, (inFlight) => {
+      const isAdmitted = inFlight < verificationPermits + maxWaitingVerifications
+      return isAdmitted ? [true, inFlight + 1] : [false, inFlight]
+    })
+    const releaseVerification = (isAdmitted: boolean) =>
+      isAdmitted ? Ref.update(inFlightVerifications, (inFlight) => inFlight - 1) : Effect.void
+
     return LoginAttempts.of({
       // The attempt is counted up front, in the same atomic step as the limit check, so parallel
       // guesses cannot all pass before any failure is recorded. Unknown emails are counted like
@@ -121,21 +128,14 @@ export const makeLoginAttempts = ({
         effect: Effect.Effect<A, E, R>,
       ): Effect.Effect<A, E | VerificationQueueFull, R> =>
         Effect.acquireUseRelease(
-          Ref.modify(inFlightVerifications, (inFlight) =>
-            inFlight >= verificationPermits + maxWaitingVerifications
-              ? [false, inFlight]
-              : [true, inFlight + 1],
-          ),
-          (isAdmitted): Effect.Effect<A, E | VerificationQueueFull, R> =>
-            isAdmitted
-              ? // scrypt keeps running on the threadpool after an interruption, so the permit must be held
-                // until it finishes or aborted requests would bypass the concurrency cap.
-                semaphore.withPermits(1)(Effect.uninterruptible(effect))
-              : Effect.fail(new VerificationQueueFull()),
-          (isAdmitted) =>
-            isAdmitted
-              ? Ref.update(inFlightVerifications, (inFlight) => inFlight - 1)
-              : Effect.void,
+          admitVerification,
+          (isAdmitted): Effect.Effect<A, E | VerificationQueueFull, R> => {
+            if (!isAdmitted) return Effect.fail(new VerificationQueueFull())
+            // scrypt keeps running on the threadpool after an interruption, so the permit must be held
+            // until it finishes or aborted requests would bypass the concurrency cap.
+            return semaphore.withPermits(1)(Effect.uninterruptible(effect))
+          },
+          releaseVerification,
         ),
     })
   })

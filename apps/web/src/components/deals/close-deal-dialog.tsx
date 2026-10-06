@@ -20,6 +20,14 @@ type CloseDealMode = "choose" | "WON" | "LOST"
 
 type LostField = "reason" | "note"
 
+const lostFields: ReadonlyArray<LostField> = ["reason", "note"]
+
+const headings: Record<CloseDealMode, string> = {
+  choose: "Fechar negócio",
+  WON: "Marcar negócio como ganho?",
+  LOST: "Marcar negócio como perdido",
+}
+
 type CloseDealDialogProps = {
   deal: Deal
   initialMode: CloseDealMode
@@ -77,26 +85,21 @@ export function CloseDealDialog({ deal, initialMode, onDismiss, onClosed }: Clos
 
     const formatter = SchemaIssue.makeFormatterStandardSchemaV1()
     const nextErrors: Partial<Record<LostField, string>> = {}
+    const noteError =
+      reason === "OTHER" && note.trim() === "" ? "Descreva o motivo." : "Texto muito longo."
     for (const issue of formatter(result.failure.issue).issues) {
       const key = firstPathKey(issue.path?.[0])
       if (key === "reason") nextErrors.reason ??= "Selecione o motivo."
-      else
-        nextErrors.note ??=
-          reason === "OTHER" && note.trim() === "" ? "Descreva o motivo." : "Texto muito longo."
+      else nextErrors.note ??= noteError
     }
     // Focus only after the errors are committed so assistive tech announces the field together with its message.
     flushSync(() => setErrors(nextErrors))
-    const firstInvalid = nextErrors.reason ? "reason" : nextErrors.note ? "note" : undefined
+    const firstInvalid = lostFields.find((field) => nextErrors[field])
     const element = firstInvalid && form.elements.namedItem(firstInvalid)
     if (element instanceof HTMLElement) element.focus()
   }
 
-  const heading =
-    mode === "choose"
-      ? "Fechar negócio"
-      : mode === "WON"
-        ? "Marcar negócio como ganho?"
-        : "Marcar negócio como perdido"
+  const heading = headings[mode]
 
   const dealSummary = (
     <p className="text-sm text-muted">

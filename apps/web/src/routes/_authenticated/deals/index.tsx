@@ -11,7 +11,7 @@ import {
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { Option, Schema } from "effect"
 import { Plus } from "lucide-react"
-import { useEffect, useEffectEvent, useState } from "react"
+import { type ReactNode, useEffect, useEffectEvent, useState } from "react"
 import { BoardColumn, type MoveFocusRequest } from "#src/components/deals/board-column.tsx"
 import { boardColumns } from "#src/components/deals/board-columns.ts"
 import { CloseDealDialog } from "#src/components/deals/close-deal-dialog.tsx"
@@ -171,6 +171,101 @@ function DealBoard() {
       replace: true,
     })
 
+  const openComments = (deal: Deal) => {
+    if (isDesktop()) {
+      void navigate({ search: (previous) => ({ ...previous, dealId: deal.id, focus: "comment" }) })
+      return
+    }
+    void navigate({
+      to: "/deals/$dealId",
+      params: { dealId: deal.id },
+      search: { focus: "comment" },
+    })
+  }
+
+  const onDealClosed = (closedDeal: Deal) => {
+    queryClient.setQueryData(listQueryKey, (current) =>
+      current?.map((item) => (item.id === closedDeal.id ? closedDeal : item)),
+    )
+    setClosing(undefined)
+    const result = closedDeal.status === "WON" ? "ganho" : "perdido"
+    setAnnouncement(`Negócio "${closedDeal.title}" marcado como ${result}.`)
+    setFocusRequest({ dealId: closedDeal.id, status: closedDeal.status })
+  }
+
+  let board: ReactNode
+  if (dealsQuery.isError)
+    board = (
+      <div className="p-4 md:p-8">
+        <div className="space-y-3 rounded-xl border border-line bg-surface px-4 py-10 text-center">
+          <p role="alert" className="text-sm text-red-400">
+            Não foi possível carregar os negócios.
+          </p>
+          <Button variant="secondary" onClick={() => void dealsQuery.refetch()}>
+            Tentar novamente
+          </Button>
+        </div>
+      </div>
+    )
+  else if (!deals)
+    board = (
+      <div className="p-4 md:p-8">
+        <div className="rounded-xl border border-line bg-surface px-4 py-10 text-center">
+          <p className="text-sm text-muted">Carregando...</p>
+        </div>
+      </div>
+    )
+  else
+    board = (
+      <div className="flex min-h-0 flex-1">
+        <div
+          ref={registerAutoScroll}
+          className={cn(
+            "min-w-0 flex-1 flex scroll-px-4 snap-x snap-mandatory gap-4 overflow-x-auto p-4 transition-opacity md:scroll-px-8 md:p-8 lg:snap-none",
+            dealsQuery.isPlaceholderData && "opacity-60",
+          )}
+          aria-busy={dealsQuery.isFetching}
+        >
+          {boardColumns.map((column) => (
+            <BoardColumn
+              key={column.status}
+              column={column}
+              deals={deals.filter((deal) => column.statuses.includes(deal.status))}
+              canMove={canMove}
+              canClose={canClose}
+              canComment={canComment}
+              selectedDealId={selectedDealId}
+              onOpenDeal={(deal) =>
+                void navigate({
+                  search: ({ focus: _focus, ...previous }) => ({ ...previous, dealId: deal.id }),
+                })
+              }
+              focusRequest={focusRequest}
+              onMoveButtonFocused={() => setFocusRequest(undefined)}
+              onMove={(deal, status) => moveMutation.mutate({ deal, status, shouldRefocus: true })}
+              onCloseRequest={(deal, mode) => setClosing({ deal, mode })}
+              onCommentRequest={openComments}
+            />
+          ))}
+        </div>
+        {selectedDealId && (
+          <DealPanel
+            key={selectedDealId}
+            dealId={selectedDealId}
+            shouldFocusComposer={focus === "comment"}
+            onComposerFocused={() =>
+              void navigate({ search: ({ focus: _focus, ...rest }) => rest, replace: true })
+            }
+            onDismiss={() =>
+              void navigate({
+                search: ({ dealId: _dealId, focus: _focus, ...rest }) => rest,
+              })
+            }
+          />
+        )}
+      </div>
+    )
+
   return (
     <div className="relative flex h-dvh min-w-0 flex-col">
       <TopBar title="Negócios">
@@ -231,85 +326,7 @@ function DealBoard() {
         </p>
       )}
 
-      {dealsQuery.isError ? (
-        <div className="p-4 md:p-8">
-          <div className="space-y-3 rounded-xl border border-line bg-surface px-4 py-10 text-center">
-            <p role="alert" className="text-sm text-red-400">
-              Não foi possível carregar os negócios.
-            </p>
-            <Button variant="secondary" onClick={() => void dealsQuery.refetch()}>
-              Tentar novamente
-            </Button>
-          </div>
-        </div>
-      ) : !deals ? (
-        <div className="p-4 md:p-8">
-          <div className="rounded-xl border border-line bg-surface px-4 py-10 text-center">
-            <p className="text-sm text-muted">Carregando...</p>
-          </div>
-        </div>
-      ) : (
-        <div className="flex min-h-0 flex-1">
-          <div
-            ref={registerAutoScroll}
-            className={cn(
-              "min-w-0 flex-1 flex scroll-px-4 snap-x snap-mandatory gap-4 overflow-x-auto p-4 transition-opacity md:scroll-px-8 md:p-8 lg:snap-none",
-              dealsQuery.isPlaceholderData && "opacity-60",
-            )}
-            aria-busy={dealsQuery.isFetching}
-          >
-            {boardColumns.map((column) => (
-              <BoardColumn
-                key={column.status}
-                column={column}
-                deals={deals.filter((deal) => column.statuses.includes(deal.status))}
-                canMove={canMove}
-                canClose={canClose}
-                canComment={canComment}
-                selectedDealId={selectedDealId}
-                onOpenDeal={(deal) =>
-                  void navigate({
-                    search: ({ focus: _focus, ...previous }) => ({ ...previous, dealId: deal.id }),
-                  })
-                }
-                focusRequest={focusRequest}
-                onMoveButtonFocused={() => setFocusRequest(undefined)}
-                onMove={(deal, status) =>
-                  moveMutation.mutate({ deal, status, shouldRefocus: true })
-                }
-                onCloseRequest={(deal, mode) => setClosing({ deal, mode })}
-                onCommentRequest={(deal) => {
-                  if (isDesktop())
-                    void navigate({
-                      search: (previous) => ({ ...previous, dealId: deal.id, focus: "comment" }),
-                    })
-                  else
-                    void navigate({
-                      to: "/deals/$dealId",
-                      params: { dealId: deal.id },
-                      search: { focus: "comment" },
-                    })
-                }}
-              />
-            ))}
-          </div>
-          {selectedDealId && (
-            <DealPanel
-              key={selectedDealId}
-              dealId={selectedDealId}
-              shouldFocusComposer={focus === "comment"}
-              onComposerFocused={() =>
-                void navigate({ search: ({ focus: _focus, ...rest }) => rest, replace: true })
-              }
-              onDismiss={() =>
-                void navigate({
-                  search: ({ dealId: _dealId, focus: _focus, ...rest }) => rest,
-                })
-              }
-            />
-          )}
-        </div>
-      )}
+      {board}
       {closing && (
         <CloseDealDialog
           key={closing.deal.id}
@@ -319,16 +336,7 @@ function DealBoard() {
             setFocusRequest({ dealId: closing.deal.id, status: closing.deal.status })
             setClosing(undefined)
           }}
-          onClosed={(closedDeal) => {
-            queryClient.setQueryData(listQueryKey, (current) =>
-              current?.map((item) => (item.id === closedDeal.id ? closedDeal : item)),
-            )
-            setClosing(undefined)
-            setAnnouncement(
-              `Negócio "${closedDeal.title}" marcado como ${closedDeal.status === "WON" ? "ganho" : "perdido"}.`,
-            )
-            setFocusRequest({ dealId: closedDeal.id, status: closedDeal.status })
-          }}
+          onClosed={onDealClosed}
         />
       )}
     </div>

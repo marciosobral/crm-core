@@ -50,6 +50,10 @@ export function AppShell({ footer, isCovered, onNavOpenChange, children }: AppSh
     wasNavOpenRef.current = isNavOpen
   }, [isNavOpen])
 
+  const drawerDialogProps = isNavOpen
+    ? { role: "dialog", "aria-modal": true, "aria-label": "Menu" }
+    : {}
+
   return (
     <NavDrawerContext value={{ isNavOpen, openNav: () => setIsNavOpen(true), menuButtonRef }}>
       <div inert={isCovered} className="flex min-h-dvh">
@@ -63,7 +67,7 @@ export function AppShell({ footer, isCovered, onNavOpenChange, children }: AppSh
         <aside
           ref={sidebarRef}
           id="app-sidebar"
-          {...(isNavOpen ? { role: "dialog", "aria-modal": true, "aria-label": "Menu" } : {})}
+          {...drawerDialogProps}
           className={cn(
             "fixed inset-y-0 left-0 z-40 flex w-60 shrink-0 flex-col justify-between border-r border-line bg-surface px-6 pb-6 duration-200 lg:sticky lg:top-0 lg:h-dvh lg:translate-x-0",
             // Visibility only transitions on close, so the drawer is focusable the moment it opens and stays visible while it slides out.

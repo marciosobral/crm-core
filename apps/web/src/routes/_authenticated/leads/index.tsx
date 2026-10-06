@@ -3,6 +3,7 @@ import { keepPreviousData, useQuery, useSuspenseQuery } from "@tanstack/react-qu
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { Option, Schema } from "effect"
 import { Plus } from "lucide-react"
+import type { ReactNode } from "react"
 import { FiltersBar } from "#src/components/layout/filters-bar.tsx"
 import { SellerFilter } from "#src/components/layout/seller-filter.tsx"
 import { TopBar } from "#src/components/layout/top-bar.tsx"
@@ -63,6 +64,81 @@ function LeadList() {
   const hasFilters = Boolean(search.search || search.sellerId || search.status)
   const leads = leadsQuery.data
 
+  let content: ReactNode
+  if (leadsQuery.isError)
+    content = (
+      <div className="rounded-xl border border-line bg-surface px-4 py-10 text-center">
+        <p role="alert" className="text-sm text-red-400">
+          Não foi possível carregar os leads.
+        </p>
+      </div>
+    )
+  else if (!leads)
+    content = (
+      <div className="rounded-xl border border-line bg-surface px-4 py-10 text-center">
+        <p className="text-sm text-muted">Carregando...</p>
+      </div>
+    )
+  else if (leads.length === 0)
+    content = (
+      <div className="space-y-3 rounded-xl border border-line bg-surface px-4 py-10 text-center">
+        <p className="text-sm text-muted">Nenhum lead encontrado.</p>
+        {canCreate && !hasFilters && (
+          <Link to="/leads/new" className={cn(variantClasses.primary, "inline-block")}>
+            Criar lead
+          </Link>
+        )}
+      </div>
+    )
+  else
+    content = (
+      <div
+        className={cn("transition-opacity", leadsQuery.isPlaceholderData && "opacity-60")}
+        aria-busy={leadsQuery.isFetching}
+      >
+        <Table>
+          <thead>
+            <TableRow className="bg-surface-raised">
+              <TableHead>Nome</TableHead>
+              <TableHead>Empresa</TableHead>
+              <TableHead>E-mail</TableHead>
+              <TableHead>Telefone</TableHead>
+              <TableHead>Status</TableHead>
+              {canSeeAll && <TableHead>Vendedor</TableHead>}
+              <TableHead>Última Interação</TableHead>
+            </TableRow>
+          </thead>
+          <tbody>
+            {leads.map((lead) => (
+              <TableRow key={lead.id} className="h-14 last:border-b-0 hover:bg-surface-raised">
+                <TableCell>{lead.name}</TableCell>
+                <TableCell isSecondary>{lead.company}</TableCell>
+                <TableCell isSecondary>{lead.email}</TableCell>
+                <TableCell isSecondary>{formatPhone(lead.phone)}</TableCell>
+                <TableCell>
+                  <StatusBadge status={lead.status} />
+                </TableCell>
+                {canSeeAll && <TableCell>{lead.seller.name}</TableCell>}
+                <TableCell className="text-xs text-placeholder">
+                  {lead.lastActivity
+                    ? `${formatRelative(lead.lastActivity.at, "long")} · ${lead.lastActivity.authorName}`
+                    : "Sem interação"}
+                </TableCell>
+              </TableRow>
+            ))}
+          </tbody>
+        </Table>
+      </div>
+    )
+
+  const filterByStatus = (value: string) => {
+    const status = Schema.decodeUnknownOption(DealStatus)(value)
+    void navigate({
+      search: ({ status: _previous, ...rest }) =>
+        Option.isSome(status) ? { ...rest, status: status.value } : rest,
+    })
+  }
+
   return (
     <>
       <TopBar title="Lista de Leads">
@@ -118,77 +194,11 @@ function LeadList() {
               label: dealStatusLabels[status],
             })),
           ]}
-          onChange={(value) =>
-            void navigate({
-              search: ({ status: _previous, ...rest }) => {
-                const status = Schema.decodeUnknownOption(DealStatus)(value)
-                return Option.isSome(status) ? { ...rest, status: status.value } : rest
-              },
-            })
-          }
+          onChange={filterByStatus}
         />
       </FiltersBar>
 
-      <section className="px-4 pt-4 pb-assistant-clearance md:px-8 md:pt-8">
-        {leadsQuery.isError ? (
-          <div className="rounded-xl border border-line bg-surface px-4 py-10 text-center">
-            <p role="alert" className="text-sm text-red-400">
-              Não foi possível carregar os leads.
-            </p>
-          </div>
-        ) : !leads ? (
-          <div className="rounded-xl border border-line bg-surface px-4 py-10 text-center">
-            <p className="text-sm text-muted">Carregando...</p>
-          </div>
-        ) : leads.length === 0 ? (
-          <div className="space-y-3 rounded-xl border border-line bg-surface px-4 py-10 text-center">
-            <p className="text-sm text-muted">Nenhum lead encontrado.</p>
-            {canCreate && !hasFilters && (
-              <Link to="/leads/new" className={cn(variantClasses.primary, "inline-block")}>
-                Criar lead
-              </Link>
-            )}
-          </div>
-        ) : (
-          <div
-            className={cn("transition-opacity", leadsQuery.isPlaceholderData && "opacity-60")}
-            aria-busy={leadsQuery.isFetching}
-          >
-            <Table>
-              <thead>
-                <TableRow className="bg-surface-raised">
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Empresa</TableHead>
-                  <TableHead>E-mail</TableHead>
-                  <TableHead>Telefone</TableHead>
-                  <TableHead>Status</TableHead>
-                  {canSeeAll && <TableHead>Vendedor</TableHead>}
-                  <TableHead>Última Interação</TableHead>
-                </TableRow>
-              </thead>
-              <tbody>
-                {leads.map((lead) => (
-                  <TableRow key={lead.id} className="h-14 last:border-b-0 hover:bg-surface-raised">
-                    <TableCell>{lead.name}</TableCell>
-                    <TableCell isSecondary>{lead.company}</TableCell>
-                    <TableCell isSecondary>{lead.email}</TableCell>
-                    <TableCell isSecondary>{formatPhone(lead.phone)}</TableCell>
-                    <TableCell>
-                      <StatusBadge status={lead.status} />
-                    </TableCell>
-                    {canSeeAll && <TableCell>{lead.seller.name}</TableCell>}
-                    <TableCell className="text-xs text-placeholder">
-                      {lead.lastActivity
-                        ? `${formatRelative(lead.lastActivity.at, "long")} · ${lead.lastActivity.authorName}`
-                        : "Sem interação"}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </tbody>
-            </Table>
-          </div>
-        )}
-      </section>
+      <section className="px-4 pt-4 pb-assistant-clearance md:px-8 md:pt-8">{content}</section>
     </>
   )
 }
