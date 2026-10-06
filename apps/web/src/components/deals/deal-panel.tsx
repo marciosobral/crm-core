@@ -6,15 +6,21 @@ import { type KeyboardEvent, useState } from "react"
 import { variantClasses } from "#src/components/ui/button.tsx"
 import { meQueryOptions } from "#src/lib/auth.ts"
 import { cn } from "#src/lib/cn.ts"
-import { dealDetailsQueryOptions } from "#src/lib/deals.ts"
+import {
+  dealActivitiesQueryOptions,
+  dealDetailsQueryOptions,
+  lastContactLabel,
+} from "#src/lib/deals.ts"
 import { CloseDealDialog } from "./close-deal-dialog.tsx"
 import { DealSummary } from "./deal-summary.tsx"
+import { PanelComments } from "./panel-comments.tsx"
 
 type DealPanelProps = { dealId: string; onDismiss: () => void }
 
 export function DealPanel({ dealId, onDismiss }: DealPanelProps) {
   const { data: user } = useSuspenseQuery(meQueryOptions)
   const detailsQuery = useQuery(dealDetailsQueryOptions(dealId))
+  const activitiesQuery = useQuery(dealActivitiesQueryOptions(dealId))
   const [closeMode, setCloseMode] = useState<"WON" | "LOST" | undefined>(undefined)
   const details = detailsQuery.data
 
@@ -44,13 +50,21 @@ export function DealPanel({ dealId, onDismiss }: DealPanelProps) {
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
           {details ? (
-            <DealSummary
-              deal={details.deal}
-              lead={details.lead}
-              variant="panel"
-              canClose={hasPermission(user, "deal.close")}
-              onClose={setCloseMode}
-            />
+            <div className="space-y-6">
+              <DealSummary
+                deal={details.deal}
+                lead={details.lead}
+                variant="panel"
+                canClose={hasPermission(user, "deal.close")}
+                lastContact={lastContactLabel(activitiesQuery.data, activitiesQuery.isError)}
+                onClose={setCloseMode}
+              />
+              <PanelComments
+                dealId={dealId}
+                activities={activitiesQuery.data}
+                isError={activitiesQuery.isError}
+              />
+            </div>
           ) : (
             <p className="text-sm text-muted">
               {detailsQuery.isError ? "Negócio não encontrado." : "Carregando..."}
@@ -64,11 +78,11 @@ export function DealPanel({ dealId, onDismiss }: DealPanelProps) {
               params={{ dealId }}
               className={cn(
                 variantClasses.secondary,
-                "flex w-full items-center justify-center gap-2",
+                "flex w-full items-center justify-center gap-2 border-brand/50 font-bold text-white hover:border-brand hover:bg-brand/10 hover:text-white",
               )}
             >
-              Ver detalhes
-              <ArrowRight className="size-3.5" aria-hidden="true" />
+              Ver detalhes e histórico
+              <ArrowRight className="size-3.5 text-brand" aria-hidden="true" />
             </Link>
           </footer>
         )}

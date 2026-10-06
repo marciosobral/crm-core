@@ -9,10 +9,18 @@ type DealSummaryProps = {
   lead: Lead
   canClose: boolean
   variant: "panel" | "page"
+  lastContact: string
   onClose: (mode: "WON" | "LOST") => void
 }
 
-export function DealSummary({ deal, lead, canClose, variant, onClose }: DealSummaryProps) {
+export function DealSummary({
+  deal,
+  lead,
+  canClose,
+  variant,
+  lastContact,
+  onClose,
+}: DealSummaryProps) {
   const isClosed = deal.status === "WON" || deal.status === "LOST"
 
   return (
@@ -36,6 +44,7 @@ export function DealSummary({ deal, lead, canClose, variant, onClose }: DealSumm
           <SummaryRow label="Lead" value={`${lead.name} (${lead.company})`} />
           <SummaryRow label="Vendedor" value={deal.seller.name} />
           <SummaryRow label="Data de criação" value={formatDate(deal.createdAt)} />
+          <SummaryRow label="Último contato" value={lastContact} />
         </dl>
       )}
       {!isClosed && canClose && (

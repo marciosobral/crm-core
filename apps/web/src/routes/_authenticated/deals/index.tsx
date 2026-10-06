@@ -24,7 +24,7 @@ import { SearchInput } from "#src/components/ui/search-input.tsx"
 import { runApi } from "#src/lib/api-client.ts"
 import { meQueryOptions } from "#src/lib/auth.ts"
 import { cn } from "#src/lib/cn.ts"
-import { dealsQueryKey, dealsQueryOptions } from "#src/lib/deals.ts"
+import { dealActivitiesQueryKey, dealsQueryKey, dealsQueryOptions } from "#src/lib/deals.ts"
 import { dealStatusLabels } from "#src/lib/labels.ts"
 import { isVisibleSellerId, leadsQueryKey, sellersQueryOptions } from "#src/lib/leads.ts"
 import { useUrlSearch } from "#src/lib/use-url-search.ts"
@@ -122,6 +122,7 @@ function DealBoard() {
     onSettled: () =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: [dealsQueryKey] }),
+        queryClient.invalidateQueries({ queryKey: [dealActivitiesQueryKey] }),
         queryClient.invalidateQueries({ queryKey: [leadsQueryKey] }),
       ]),
   })

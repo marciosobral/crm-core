@@ -60,7 +60,7 @@ Decisions: a loss needs a reason from a closed set (price, competitor, no budget
 
 - [x] `deal_comments` and `deal_events` tables, with author and timestamp
 - [x] Contract: add a comment and list a deal's activity (comments and events)
-- [ ] Web: activity timeline on the deal details
+- [x] Web: activity timeline on the deal details
 - [ ] From the kanban card: add a comment
 - [ ] Lead list: last interaction column
 - [x] Tests: add, list, comment on a missing deal, events on create, move and close

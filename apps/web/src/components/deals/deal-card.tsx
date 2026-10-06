@@ -5,16 +5,9 @@ import { Option, Schema } from "effect"
 import { useEffect, useRef, useState } from "react"
 import { cn } from "#src/lib/cn.ts"
 import { formatDealValue } from "#src/lib/currency.ts"
+import { initialsOf } from "#src/lib/initials.ts"
 import { dealStatusTextClasses } from "#src/lib/labels.ts"
 import { MoveMenu } from "./move-menu.tsx"
-
-const initialsOf = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("")
 
 type DealCardProps = {
   deal: Deal
