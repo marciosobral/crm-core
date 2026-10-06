@@ -13,10 +13,9 @@ import { StatusBadge } from "#src/components/ui/status-badge.tsx"
 import { Table, TableCell, TableHead, TableRow } from "#src/components/ui/table.tsx"
 import { meQueryOptions } from "#src/lib/auth.ts"
 import { cn } from "#src/lib/cn.ts"
-import { formatRelative } from "#src/lib/dates.ts"
+import { formatPhone, formatRelative } from "#src/lib/format.ts"
 import { dealStatusLabels } from "#src/lib/labels.ts"
-import { isVisibleSellerId, leadsQueryOptions, sellersQueryOptions } from "#src/lib/leads.ts"
-import { formatPhone } from "#src/lib/phone.ts"
+import { ensureSellersIfPermitted, isVisibleSellerId, leadsQueryOptions } from "#src/lib/leads.ts"
 import { useUrlSearch } from "#src/lib/use-url-search.ts"
 
 export const Route = createFileRoute("/_authenticated/leads/")({
@@ -36,9 +35,7 @@ export const Route = createFileRoute("/_authenticated/leads/")({
   },
   // Search params are not loader deps: the list query lives in the component so filtering keeps the page mounted.
   loader: async ({ context }) => {
-    const user = await context.queryClient.ensureQueryData(meQueryOptions)
-    if (hasPermission(user, "lead.see_all"))
-      await context.queryClient.ensureQueryData(sellersQueryOptions)
+    await ensureSellersIfPermitted(context.queryClient, "lead.see_all")
   },
   component: LeadList,
 })

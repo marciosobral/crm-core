@@ -2,7 +2,7 @@ import { inspect } from "node:util"
 import { expect, it } from "@effect/vitest"
 import { Effect, Logger, References } from "effect"
 import { SqlError } from "effect/unstable/sql"
-import { failUnavailable } from "./unavailable.ts"
+import { failUnavailable } from "./http.ts"
 
 it.effect("logs the reason tag without the driver error", () =>
   Effect.gen(function* () {

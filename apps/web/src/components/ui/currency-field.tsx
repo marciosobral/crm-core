@@ -1,4 +1,4 @@
-import { centsFromInput, formatCents } from "#src/lib/currency.ts"
+import { centsFromInput, formatCents } from "#src/lib/format.ts"
 import { TextField, type TextFieldProps } from "./text-field.tsx"
 
 type CurrencyFieldProps = Omit<TextFieldProps, "value" | "onChange" | "type" | "inputMode"> & {

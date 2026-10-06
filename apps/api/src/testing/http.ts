@@ -5,6 +5,8 @@ import { SqlClient } from "effect/unstable/sql"
 import { ApiRoutes } from "#src/platform/server.ts"
 import { TestDatabase } from "./database.ts"
 
+export type Send = (request: Request) => Effect.Effect<Response>
+
 // Raw web requests instead of HttpApiTest: the typed client cannot read or send cookies.
 export const makeTestApi = Effect.gen(function* () {
   const database = yield* Layer.build(TestDatabase)
@@ -26,19 +28,25 @@ export const makeTestApi = Effect.gen(function* () {
   }
 })
 
-const loginRequest = (email: string, password: string) =>
-  new Request("http://localhost/auth/login", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email, password }),
+export const jsonOf = (response: Response) => Effect.promise(() => response.json())
+
+export const jsonRequest = (
+  method: "POST" | "PATCH",
+  path: string,
+  body: unknown,
+  cookie?: string,
+) =>
+  new Request(`http://localhost${path}`, {
+    method,
+    headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) },
+    body: JSON.stringify(body),
   })
 
-export const loginAs = (
-  send: (request: Request) => Effect.Effect<Response>,
-  email: string,
-  password: string,
-) =>
-  Effect.map(
-    send(loginRequest(email, password)),
-    (response) => response.headers.get("set-cookie")?.split(";")[0] ?? "",
-  )
+export const loginRequest = (email: string, password: string) =>
+  jsonRequest("POST", "/auth/login", { email, password })
+
+export const sessionCookieOf = (response: Response) =>
+  response.headers.get("set-cookie")?.split(";")[0] ?? ""
+
+export const loginAs = (send: Send, email: string, password: string) =>
+  Effect.map(send(loginRequest(email, password)), sessionCookieOf)

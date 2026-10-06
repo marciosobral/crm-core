@@ -3,7 +3,7 @@ import { expect, it } from "@effect/vitest"
 import { Effect, Redacted, Schema } from "effect"
 import { SqlClient } from "effect/unstable/sql"
 import { verifyPassword } from "#src/auth/password.ts"
-import { demoPassword, TestDatabase } from "#src/testing/database.ts"
+import { demoPassword, seededEmails, TestDatabase } from "#src/testing/database.ts"
 import { backfillDealEvents } from "./0008_create_deal_activity.ts"
 
 it.effect("creates the tables and seeds the sellers with hashed passwords", () =>
@@ -21,16 +21,16 @@ it.effect("creates the tables and seeds the sellers with hashed passwords", () =
       ),
     )
     expect(users.map(({ email, role }) => [email, role])).toEqual([
-      ["ana.souza@crm-core.dev", "SELLER"],
-      ["bruno.lima@crm-core.dev", "SELLER"],
-      ["demo@crm-core.dev", "SUPERVISOR"],
+      [seededEmails.ana, "SELLER"],
+      [seededEmails.bruno, "SELLER"],
+      [seededEmails.demo, "SUPERVISOR"],
     ])
     expect(users.map(({ email }) => email)).toEqual([
-      "ana.souza@crm-core.dev",
-      "bruno.lima@crm-core.dev",
-      "demo@crm-core.dev",
+      seededEmails.ana,
+      seededEmails.bruno,
+      seededEmails.demo,
     ])
-    const demo = users.find(({ email }) => email === "demo@crm-core.dev")
+    const demo = users.find(({ email }) => email === seededEmails.demo)
     expect(yield* verifyPassword(Redacted.make(demoPassword), demo?.passwordHash ?? "")).toBe(true)
     const sessions = yield* sql`SELECT count(*)::int AS count FROM sessions`.pipe(
       Effect.flatMap(
@@ -46,7 +46,7 @@ const decodeIdRow = Schema.decodeUnknownEffect(Schema.Tuple([Schema.Struct({ id:
 it.effect("rejects a closed deal that has no loss reason", () =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
-    const [seller] = yield* sql`SELECT id FROM users WHERE email = 'ana.souza@crm-core.dev'`.pipe(
+    const [seller] = yield* sql`SELECT id FROM users WHERE email = ${seededEmails.ana}`.pipe(
       Effect.flatMap(decodeIdRow),
     )
     const [lead] = yield* sql`
@@ -79,7 +79,7 @@ const decodeEventRows = Schema.decodeUnknownEffect(
 it.effect("backfills the events of deals created before the activity tables", () =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
-    const [seller] = yield* sql`SELECT id FROM users WHERE email = 'ana.souza@crm-core.dev'`.pipe(
+    const [seller] = yield* sql`SELECT id FROM users WHERE email = ${seededEmails.ana}`.pipe(
       Effect.flatMap(decodeIdRow),
     )
     const [lead] = yield* sql`

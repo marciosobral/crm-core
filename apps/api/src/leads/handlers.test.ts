@@ -1,50 +1,31 @@
 import { expect, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
-import type { SqlClient } from "effect/unstable/sql"
-import { demoPassword } from "#src/testing/database.ts"
-import { loginAs, makeTestApi } from "#src/testing/http.ts"
-
-const sellerPassword = "seller-test-password"
-const demoEmail = "demo@crm-core.dev"
-const anaEmail = "ana.souza@crm-core.dev"
-const brunoEmail = "bruno.lima@crm-core.dev"
-
-type Send = (request: Request) => Effect.Effect<Response>
+import { demoPassword, seededEmails, seededUserIds, sellerPassword } from "#src/testing/database.ts"
+import { jsonOf, jsonRequest, loginAs, makeTestApi, type Send } from "#src/testing/http.ts"
 
 const createLead = (send: Send, cookie: string, overrides: Record<string, unknown> = {}) =>
   send(
-    new Request("http://localhost/leads", {
-      method: "POST",
-      headers: { "content-type": "application/json", cookie },
-      body: JSON.stringify({
+    jsonRequest(
+      "POST",
+      "/leads",
+      {
         name: "Juliana Mendes",
         company: "Condomínio Reserva",
         email: "juliana@horizon.com.br",
         phone: "11973214455",
         source: "REFERRAL",
         ...overrides,
-      }),
-    }),
+      },
+      cookie,
+    ),
   )
 
 const listLeads = (send: Send, cookie?: string, query = "") =>
   send(new Request(`http://localhost/leads${query}`, { headers: cookie ? { cookie } : {} }))
 
-const jsonOf = (response: Response) => Effect.promise(() => response.json())
-
-const decodeUsers = Schema.decodeUnknownEffect(
-  Schema.Array(Schema.Struct({ id: Schema.String, email: Schema.String })),
-)
 const decodeLeadRows = Schema.decodeUnknownEffect(
   Schema.Array(Schema.Struct({ seller_id: Schema.String, created_by: Schema.String })),
 )
-
-const idsByEmail = (sql: SqlClient.SqlClient) =>
-  Effect.gen(function* () {
-    const users = yield* decodeUsers(yield* sql`SELECT id, email FROM users`).pipe(Effect.orDie)
-    const idOf = (email: string) => users.find((user) => user.email === email)?.id ?? ""
-    return { ana: idOf(anaEmail), bruno: idOf(brunoEmail), demo: idOf(demoEmail) }
-  })
 
 const namesOf = (body: unknown) =>
   Schema.decodeUnknownSync(Schema.Array(Schema.Struct({ name: Schema.String })))(body).map(
@@ -54,11 +35,11 @@ const namesOf = (body: unknown) =>
 it.effect("lets a seller create a lead owned by themselves", () =>
   Effect.gen(function* () {
     const { send, sql } = yield* makeTestApi
-    const cookie = yield* loginAs(send, anaEmail, sellerPassword)
+    const cookie = yield* loginAs(send, seededEmails.ana, sellerPassword)
     const response = yield* createLead(send, cookie)
     expect(response.status).toBe(201)
     expect(yield* jsonOf(response)).toMatchObject({ seller: { name: "Ana Souza" } })
-    const ids = yield* idsByEmail(sql)
+    const ids = yield* seededUserIds(sql)
     const rows = yield* decodeLeadRows(yield* sql`SELECT seller_id, created_by FROM leads`)
     expect(rows).toEqual([{ seller_id: ids.ana, created_by: ids.ana }])
   }).pipe(Effect.scoped),
@@ -67,8 +48,8 @@ it.effect("lets a seller create a lead owned by themselves", () =>
 it.effect("forbids a seller from choosing the responsible seller", () =>
   Effect.gen(function* () {
     const { send, sql } = yield* makeTestApi
-    const cookie = yield* loginAs(send, anaEmail, sellerPassword)
-    const ids = yield* idsByEmail(sql)
+    const cookie = yield* loginAs(send, seededEmails.ana, sellerPassword)
+    const ids = yield* seededUserIds(sql)
     expect((yield* createLead(send, cookie, { sellerId: ids.bruno })).status).toBe(403)
     expect((yield* createLead(send, cookie, { sellerId: ids.ana })).status).toBe(403)
   }).pipe(Effect.scoped),
@@ -77,8 +58,8 @@ it.effect("forbids a seller from choosing the responsible seller", () =>
 it.effect("lets a supervisor assign a lead to a seller", () =>
   Effect.gen(function* () {
     const { send, sql } = yield* makeTestApi
-    const cookie = yield* loginAs(send, demoEmail, demoPassword)
-    const ids = yield* idsByEmail(sql)
+    const cookie = yield* loginAs(send, seededEmails.demo, demoPassword)
+    const ids = yield* seededUserIds(sql)
     const response = yield* createLead(send, cookie, { sellerId: ids.ana })
     expect(response.status).toBe(201)
     expect(yield* jsonOf(response)).toMatchObject({ seller: { name: "Ana Souza" } })
@@ -90,8 +71,8 @@ it.effect("lets a supervisor assign a lead to a seller", () =>
 it.effect("rejects a supervisor lead without a valid seller", () =>
   Effect.gen(function* () {
     const { send, sql } = yield* makeTestApi
-    const cookie = yield* loginAs(send, demoEmail, demoPassword)
-    const ids = yield* idsByEmail(sql)
+    const cookie = yield* loginAs(send, seededEmails.demo, demoPassword)
+    const ids = yield* seededUserIds(sql)
     for (const overrides of [{}, { sellerId: crypto.randomUUID() }, { sellerId: ids.demo }]) {
       const response = yield* createLead(send, cookie, overrides)
       expect(response.status).toBe(422)
@@ -103,7 +84,7 @@ it.effect("rejects a supervisor lead without a valid seller", () =>
 it.effect("rejects invalid payloads", () =>
   Effect.gen(function* () {
     const { send } = yield* makeTestApi
-    const cookie = yield* loginAs(send, anaEmail, sellerPassword)
+    const cookie = yield* loginAs(send, seededEmails.ana, sellerPassword)
     for (const overrides of [
       { email: "not-an-email" },
       { phone: "119732144" },
@@ -118,7 +99,7 @@ it.effect("rejects invalid payloads", () =>
 it.effect("stores blank optional fields as null and trims the job title", () =>
   Effect.gen(function* () {
     const { send } = yield* makeTestApi
-    const cookie = yield* loginAs(send, anaEmail, sellerPassword)
+    const cookie = yield* loginAs(send, seededEmails.ana, sellerPassword)
     const blank = yield* createLead(send, cookie, { jobTitle: "  ", notes: "" })
     expect(blank.status).toBe(201)
     expect(yield* jsonOf(blank)).toMatchObject({ jobTitle: null, notes: null })
@@ -139,10 +120,10 @@ it.effect("requires a session", () =>
 it.effect("shows sellers only their own leads and supervisors all of them, newest first", () =>
   Effect.gen(function* () {
     const { send, sql } = yield* makeTestApi
-    const ana = yield* loginAs(send, anaEmail, sellerPassword)
-    const bruno = yield* loginAs(send, brunoEmail, sellerPassword)
-    const demo = yield* loginAs(send, demoEmail, demoPassword)
-    const ids = yield* idsByEmail(sql)
+    const ana = yield* loginAs(send, seededEmails.ana, sellerPassword)
+    const bruno = yield* loginAs(send, seededEmails.bruno, sellerPassword)
+    const demo = yield* loginAs(send, seededEmails.demo, demoPassword)
+    const ids = yield* seededUserIds(sql)
     yield* createLead(send, ana, { name: "Lead da Ana" })
     yield* createLead(send, bruno, { name: "Lead do Bruno" })
     yield* createLead(send, demo, { name: "Lead do supervisor", sellerId: ids.bruno })
@@ -160,10 +141,10 @@ it.effect("shows sellers only their own leads and supervisors all of them, newes
 it.effect("filters by seller and hides other sellers from restricted callers", () =>
   Effect.gen(function* () {
     const { send, sql } = yield* makeTestApi
-    const ana = yield* loginAs(send, anaEmail, sellerPassword)
-    const bruno = yield* loginAs(send, brunoEmail, sellerPassword)
-    const demo = yield* loginAs(send, demoEmail, demoPassword)
-    const ids = yield* idsByEmail(sql)
+    const ana = yield* loginAs(send, seededEmails.ana, sellerPassword)
+    const bruno = yield* loginAs(send, seededEmails.bruno, sellerPassword)
+    const demo = yield* loginAs(send, seededEmails.demo, demoPassword)
+    const ids = yield* seededUserIds(sql)
     yield* createLead(send, ana, { name: "Lead da Ana" })
     yield* createLead(send, bruno, { name: "Lead do Bruno" })
     yield* createLead(send, demo, { name: "Lead do supervisor", sellerId: ids.bruno })
@@ -179,7 +160,7 @@ it.effect("filters by seller and hides other sellers from restricted callers", (
 it.effect("searches name, company and email, treating wildcards literally", () =>
   Effect.gen(function* () {
     const { send } = yield* makeTestApi
-    const cookie = yield* loginAs(send, anaEmail, sellerPassword)
+    const cookie = yield* loginAs(send, seededEmails.ana, sellerPassword)
     yield* createLead(send, cookie)
     yield* createLead(send, cookie, { name: "100% Fit", company: "Academia", email: "fit@a.com" })
     yield* createLead(send, cookie, { name: "1000 Fit", company: "Academia", email: "fit2@a.com" })
@@ -202,17 +183,18 @@ const decodeStatuses = Schema.decodeUnknownSync(
 
 const createDealFor = (send: Send, cookie: string, leadId: string, status: string) =>
   send(
-    new Request("http://localhost/deals", {
-      method: "POST",
-      headers: { "content-type": "application/json", cookie },
-      body: JSON.stringify({ title: `Deal ${status}`, leadId, valueCents: 100_000, status }),
-    }),
+    jsonRequest(
+      "POST",
+      "/deals",
+      { title: `Deal ${status}`, leadId, valueCents: 100_000, status },
+      cookie,
+    ),
   ).pipe(Effect.tap((response) => Effect.sync(() => expect(response.status).toBe(201))))
 
 it.effect("derives the lead status from its deals", () =>
   Effect.gen(function* () {
     const { send, sql } = yield* makeTestApi
-    const cookie = yield* loginAs(send, anaEmail, sellerPassword)
+    const cookie = yield* loginAs(send, seededEmails.ana, sellerPassword)
     const idOf = (response: Response) =>
       Effect.map(
         jsonOf(response),

@@ -1,8 +1,7 @@
 import type { DealActivity, DealComment } from "@crm/contract"
 import { DateTime } from "effect"
 import { MessageCircle } from "lucide-react"
-import { formatRelative } from "#src/lib/dates.ts"
-import { initialsOf } from "#src/lib/initials.ts"
+import { formatRelative, initialsOf } from "#src/lib/format.ts"
 import { CommentComposer } from "./comment-composer.tsx"
 
 type PanelCommentsProps = {

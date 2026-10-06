@@ -1,4 +1,4 @@
-import { formatPhone, phoneDigits } from "#src/lib/phone.ts"
+import { formatPhone, phoneDigits } from "#src/lib/format.ts"
 import { TextField, type TextFieldProps } from "./text-field.tsx"
 
 type PhoneFieldProps = Omit<TextFieldProps, "value" | "onChange" | "type" | "inputMode"> & {

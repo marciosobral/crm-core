@@ -2,8 +2,7 @@ import { CrmApi, CurrentUser, hasPermission, InvalidLeadSeller } from "@crm/cont
 import { Effect } from "effect"
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
 import { requirePermission } from "#src/auth/permissions.ts"
-import { nullIfBlank } from "#src/platform/text.ts"
-import { failUnavailable } from "#src/platform/unavailable.ts"
+import { failUnavailable, nullIfBlank } from "#src/platform/http.ts"
 import { SellersRepository } from "#src/sellers/repository.ts"
 import { LeadsRepository } from "./repository.ts"
 

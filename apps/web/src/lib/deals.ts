@@ -2,7 +2,7 @@ import type { DealActivity } from "@crm/contract"
 import { type QueryClient, queryOptions } from "@tanstack/react-query"
 import { HttpApiError } from "effect/unstable/httpapi"
 import { runApi, shouldRetryQuery } from "./api-client.ts"
-import { formatRelative } from "./dates.ts"
+import { formatRelative } from "./format.ts"
 import { leadsQueryKey } from "./leads.ts"
 
 export const dealsQueryKey = "deals"

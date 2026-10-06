@@ -4,9 +4,9 @@ import { Link } from "@tanstack/react-router"
 import { Option, Schema } from "effect"
 import { useEffect, useRef, useState } from "react"
 import { cn } from "#src/lib/cn.ts"
-import { formatDealValue } from "#src/lib/currency.ts"
-import { initialsOf } from "#src/lib/initials.ts"
+import { formatDealValue, initialsOf } from "#src/lib/format.ts"
 import { dealStatusTextClasses } from "#src/lib/labels.ts"
+import { isDesktop } from "#src/lib/media.ts"
 import { MoveMenu } from "./move-menu.tsx"
 
 type DealCardProps = {
@@ -78,7 +78,7 @@ export function DealCard({
             className="after:absolute after:inset-0"
             onClick={(event) => {
               // From lg up the details open in the board's side panel instead of navigating to the page.
-              if (!window.matchMedia("(min-width: 1024px)").matches) return
+              if (!isDesktop()) return
               event.preventDefault()
               onOpen()
             }}

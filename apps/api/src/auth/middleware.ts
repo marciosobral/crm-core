@@ -1,7 +1,7 @@
 import { Authorization, CurrentUser } from "@crm/contract"
 import { Effect, Layer, Option, Redacted } from "effect"
 import { HttpApiError } from "effect/unstable/httpapi"
-import { failUnavailable } from "#src/platform/unavailable.ts"
+import { failUnavailable } from "#src/platform/http.ts"
 import { AuthRepository } from "./repository.ts"
 import { hashSessionToken } from "./session-token.ts"
 

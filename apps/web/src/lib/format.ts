@@ -1,5 +1,35 @@
 import type { DateTime } from "effect"
 
+const withCents = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
+const withoutCents = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  maximumFractionDigits: 0,
+})
+
+export const formatCents = (cents: number) => withCents.format(cents / 100)
+
+export const formatDealValue = (cents: number) =>
+  cents % 100 === 0 ? withoutCents.format(cents / 100) : withCents.format(cents / 100)
+
+// Typing fills the value from the right, like a cash register: "8", "89", "890" -> R$ 0,08, R$ 0,89, R$ 8,90.
+export const centsFromInput = (text: string) => {
+  const digits = text.replace(/\D/g, "").replace(/^0+/, "").slice(0, 11)
+  return digits === "" ? 0 : Number(digits)
+}
+
+export const phoneDigits = (value: string) => value.replace(/\D/g, "").slice(0, 11)
+
+export const formatPhone = (digits: string) => {
+  if (digits.length === 0) return ""
+  const area = digits.slice(0, 2)
+  if (digits.length <= 2) return `(${area}`
+  const localLength = digits.length === 11 ? 5 : 4
+  const first = digits.slice(2, 2 + localLength)
+  const rest = digits.slice(2 + localLength)
+  return rest ? `(${area}) ${first}-${rest}` : `(${area}) ${first}`
+}
+
 const saoPauloDate = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Sao_Paulo",
   day: "2-digit",
@@ -58,3 +88,11 @@ export const formatRelative = (
   const date = `${Number(dayOfMonth)} ${monthAbbreviations[Number(month) - 1]}${year === today.slice(0, 4) ? "" : ` ${year}`}`
   return style === "long" ? `${date}, ${time}` : date
 }
+
+export const initialsOf = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("")

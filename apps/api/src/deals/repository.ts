@@ -10,8 +10,7 @@ import {
 } from "@crm/contract"
 import { Context, Effect, Layer, Option, Schema } from "effect"
 import { SqlClient, type SqlError, SqlSchema } from "effect/unstable/sql"
-import { dieOnSchemaError } from "#src/platform/schema-defects.ts"
-import { escapeLikePattern } from "#src/platform/sql-like.ts"
+import { dieOnMissingRow, dieOnSchemaError, escapeLikePattern } from "#src/platform/sql.ts"
 
 const DealRow = Schema.Struct({
   id: Schema.String,
@@ -368,11 +367,7 @@ export const DealsRepositoryLive = Layer.effect(
             sellerId: deal.sellerId,
           })
           return yield* readBack(id)
-        }).pipe(
-          sql.withTransaction,
-          Effect.catchTag("NoSuchElementError", (error) => Effect.die(error)),
-          dieOnSchemaError,
-        ),
+        }).pipe(sql.withTransaction, dieOnMissingRow, dieOnSchemaError),
       moveOpen: (id, status, actorId) =>
         Effect.gen(function* () {
           const updated = yield* updateOpenStatus({ id, status })
@@ -410,11 +405,7 @@ export const DealsRepositoryLive = Layer.effect(
           Effect.map((rows) => rows.map(toActivity)),
         ),
       addComment: (comment) =>
-        insertComment(comment).pipe(
-          Effect.map(toComment),
-          Effect.catchTag("NoSuchElementError", (error) => Effect.die(error)),
-          dieOnSchemaError,
-        ),
+        insertComment(comment).pipe(Effect.map(toComment), dieOnMissingRow, dieOnSchemaError),
     }
   }),
 )

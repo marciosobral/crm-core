@@ -7,8 +7,7 @@ import { Button } from "#src/components/ui/button.tsx"
 import { Logo } from "#src/components/ui/logo.tsx"
 import { TextField } from "#src/components/ui/text-field.tsx"
 import { runApi } from "#src/lib/api-client.ts"
-import { meQueryOptions } from "#src/lib/auth.ts"
-import { safeRedirect } from "#src/lib/safe-redirect.ts"
+import { meQueryOptions, safeRedirect } from "#src/lib/auth.ts"
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>): { redirect?: string } =>

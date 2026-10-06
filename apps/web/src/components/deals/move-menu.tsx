@@ -2,8 +2,12 @@ import { OpenDealStatus } from "@crm/contract"
 import { Link } from "@tanstack/react-router"
 import { ArrowRightLeft } from "lucide-react"
 import { useEffect, useId, useRef, useState } from "react"
+import { cn } from "#src/lib/cn.ts"
 import { dealStatusLabels } from "#src/lib/labels.ts"
 import { useAnchoredPopover } from "#src/lib/use-anchored-popover.ts"
+
+const menuItemClasses =
+  "w-full px-3 py-1.5 text-left text-sm text-white hover:bg-line focus-visible:bg-line focus-visible:outline-none"
 
 type MoveMenuProps = {
   dealId: string
@@ -98,7 +102,7 @@ export function MoveMenu({
             to="/deals/$dealId"
             params={{ dealId }}
             onClick={() => setIsOpen(false)}
-            className="block w-full px-3 py-1.5 text-left text-sm text-white hover:bg-line focus-visible:bg-line focus-visible:outline-none"
+            className={cn("block", menuItemClasses)}
           >
             Ver detalhes
           </Link>
@@ -111,7 +115,7 @@ export function MoveMenu({
                 setIsOpen(false)
                 onCommentRequest()
               }}
-              className="w-full px-3 py-1.5 text-left text-sm text-white hover:bg-line focus-visible:bg-line focus-visible:outline-none"
+              className={menuItemClasses}
             >
               Comentar
             </button>
@@ -132,7 +136,7 @@ export function MoveMenu({
                       setIsOpen(false)
                       onMove(status)
                     }}
-                    className="w-full px-3 py-1.5 text-left text-sm text-white hover:bg-line focus-visible:bg-line focus-visible:outline-none"
+                    className={menuItemClasses}
                   >
                     {dealStatusLabels[status]}
                   </button>
@@ -150,7 +154,7 @@ export function MoveMenu({
                       setIsOpen(false)
                       onCloseRequest("WON")
                     }}
-                    className="w-full px-3 py-1.5 text-left text-sm text-status-won hover:bg-line focus-visible:bg-line focus-visible:outline-none"
+                    className={cn(menuItemClasses, "text-status-won")}
                   >
                     Marcar como ganho
                   </button>
@@ -162,7 +166,7 @@ export function MoveMenu({
                       setIsOpen(false)
                       onCloseRequest("LOST")
                     }}
-                    className="w-full px-3 py-1.5 text-left text-sm text-status-lost hover:bg-line focus-visible:bg-line focus-visible:outline-none"
+                    className={cn(menuItemClasses, "text-status-lost")}
                   >
                     Marcar como perdido
                   </button>

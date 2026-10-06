@@ -1,9 +1,10 @@
 import { CreateLeadPayload, hasPermission, InvalidLeadSeller, LeadSource } from "@crm/contract"
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Result, Schema, SchemaIssue } from "effect"
+import { Result, Schema } from "effect"
 import { type FormEvent, useRef, useState } from "react"
 import { flushSync } from "react-dom"
+import { SellerSelect } from "#src/components/layout/seller-select.tsx"
 import { TopBar } from "#src/components/layout/top-bar.tsx"
 import { Button } from "#src/components/ui/button.tsx"
 import { PhoneField } from "#src/components/ui/phone-field.tsx"
@@ -12,14 +13,13 @@ import { TextArea } from "#src/components/ui/text-area.tsx"
 import { TextField } from "#src/components/ui/text-field.tsx"
 import { runApi } from "#src/lib/api-client.ts"
 import { meQueryOptions } from "#src/lib/auth.ts"
+import { fieldErrorsFromIssue } from "#src/lib/form-errors.ts"
 import { sourceLabels } from "#src/lib/labels.ts"
-import { leadsQueryKey, sellersQueryOptions } from "#src/lib/leads.ts"
+import { ensureSellersIfPermitted, leadsQueryKey } from "#src/lib/leads.ts"
 
 export const Route = createFileRoute("/_authenticated/leads/new")({
   loader: async ({ context }) => {
-    const user = await context.queryClient.ensureQueryData(meQueryOptions)
-    if (hasPermission(user, "lead.assign_any"))
-      await context.queryClient.ensureQueryData(sellersQueryOptions)
+    await ensureSellersIfPermitted(context.queryClient, "lead.assign_any")
   },
   component: NewLead,
 })
@@ -68,40 +68,6 @@ const fieldErrorMessages: Record<FormField, string> = {
   sellerId: "Selecione um vendedor válido.",
   jobTitle: "Texto muito longo.",
   notes: "Texto muito longo.",
-}
-
-const isFormField = (key: unknown): key is FormField =>
-  typeof key === "string" && key in fieldErrorMessages
-
-const firstPathKey = (segment: PropertyKey | { readonly key: PropertyKey } | undefined) =>
-  typeof segment === "object" ? segment.key : segment
-
-function SellerSelect({
-  value,
-  error,
-  onChange,
-}: {
-  value: string
-  error: string | undefined
-  onChange: (value: string) => void
-}) {
-  const { data: sellers } = useSuspenseQuery(sellersQueryOptions)
-
-  return (
-    <div className="md:col-span-2">
-      <Select
-        label="Vendedor Responsável"
-        required
-        value={value}
-        error={error}
-        name="sellerId"
-        searchable
-        placeholder="Atribuir a um vendedor"
-        options={sellers.map((seller) => ({ value: seller.id, label: seller.name }))}
-        onChange={onChange}
-      />
-    </div>
-  )
 }
 
 function NewLead() {
@@ -157,12 +123,7 @@ function NewLead() {
       return
     }
 
-    const formatter = SchemaIssue.makeFormatterStandardSchemaV1()
-    const nextErrors: Partial<Record<FormField, string>> = {}
-    for (const issue of formatter(result.failure.issue).issues) {
-      const key = firstPathKey(issue.path?.[0])
-      if (isFormField(key)) nextErrors[key] ??= fieldErrorMessages[key]
-    }
+    const nextErrors = fieldErrorsFromIssue(result.failure.issue, fieldErrorMessages)
     // Focus only after the errors are committed so assistive tech announces the field together with its message.
     flushSync(() => setErrors(nextErrors))
     const firstInvalid = fieldOrder.find((field) => nextErrors[field])
@@ -242,11 +203,14 @@ function NewLead() {
               onChange={(source) => setValue("source", source)}
             />
             {canAssign && (
-              <SellerSelect
-                value={values.sellerId}
-                error={errors.sellerId}
-                onChange={(value) => setValue("sellerId", value)}
-              />
+              <div className="md:col-span-2">
+                <SellerSelect
+                  value={values.sellerId}
+                  error={errors.sellerId}
+                  placeholder="Atribuir a um vendedor"
+                  onChange={(value) => setValue("sellerId", value)}
+                />
+              </div>
             )}
             <div className="md:col-span-2">
               <TextArea

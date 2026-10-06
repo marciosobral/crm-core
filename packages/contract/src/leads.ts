@@ -3,6 +3,7 @@ import { HttpApiEndpoint, HttpApiError, HttpApiGroup, HttpApiSchema } from "effe
 import { Authorization } from "./auth.ts"
 import { DealStatus } from "./deal-status.ts"
 import { Seller } from "./sellers.ts"
+import { requiredText, trimmedText } from "./text.ts"
 
 export const LeadSource = Schema.Literals([
   "WEBSITE",
@@ -34,10 +35,6 @@ export class Lead extends Schema.Class<Lead>("Lead")({
   createdAt: Schema.DateTimeUtcFromString,
   lastActivity: Schema.NullOr(LeadLastActivity),
 }) {}
-
-const trimmedText = (max: number) => Schema.Trim.check(Schema.isMaxLength(max))
-const requiredText = (max: number) =>
-  Schema.Trim.check(Schema.isNonEmpty(), Schema.isMaxLength(max))
 
 export const CreateLeadPayload = Schema.Struct({
   name: requiredText(120),

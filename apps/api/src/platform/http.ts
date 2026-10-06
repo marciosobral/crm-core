@@ -8,3 +8,6 @@ export const failUnavailable = (error: SqlError.SqlError) =>
     Effect.annotateLogs({ sqlErrorReason: error.reason._tag }),
     Effect.andThen(Effect.fail(new HttpApiError.ServiceUnavailable())),
   )
+
+export const nullIfBlank = (text: string | undefined) =>
+  text === undefined || text.trim() === "" ? null : text
