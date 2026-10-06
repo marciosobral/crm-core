@@ -486,3 +486,64 @@ it.effect("scopes comments and activities to the deals the user can see", () =>
     expect((yield* addComment(send, ana, dealId, "Entrega agendada")).status).toBe(201)
   }).pipe(Effect.scoped),
 )
+
+const decodeLastActivities = Schema.decodeUnknownSync(
+  Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      lastActivity: Schema.NullOr(Schema.Struct({ at: Schema.String, authorName: Schema.String })),
+    }),
+  ),
+)
+
+it.effect("shows each lead's last interaction across its deals", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    const ana = yield* loginAs(send, anaEmail, sellerPassword)
+    const demo = yield* loginAs(send, demoEmail, demoPassword)
+    const quietLead = yield* createLead(send, ana, { name: "Sem negócio" })
+    const busyLead = yield* createLead(send, ana)
+    yield* createDeal(send, ana, { leadId: busyLead, title: "Primeiro" })
+    const dealId = decodeId(
+      yield* jsonOf(yield* createDeal(send, ana, { leadId: busyLead, title: "Segundo" })),
+    ).id
+    const lastActivityOf = (leadId: string) =>
+      Effect.gen(function* () {
+        const response = yield* send(
+          new Request("http://localhost/leads", { headers: { cookie: ana } }),
+        )
+        const leads = decodeLastActivities(yield* jsonOf(response))
+        return leads.find((lead) => lead.id === leadId)?.lastActivity
+      })
+    expect(yield* lastActivityOf(quietLead)).toBeNull()
+    expect(yield* lastActivityOf(busyLead)).toMatchObject({ authorName: "Ana Souza" })
+    yield* addComment(send, demo, dealId, "Ligar amanhã")
+    expect(yield* lastActivityOf(busyLead)).toMatchObject({ authorName: "Conta Demo" })
+  }).pipe(Effect.scoped),
+)
+
+it.effect("hides activity on other sellers' deals from the lead's last interaction", () =>
+  Effect.gen(function* () {
+    const { send, sql } = yield* makeTestApi
+    const ids = yield* idsByEmail(sql)
+    const demo = yield* loginAs(send, demoEmail, demoPassword)
+    const ana = yield* loginAs(send, anaEmail, sellerPassword)
+    const bruno = yield* loginAs(send, brunoEmail, sellerPassword)
+    const leadId = yield* createLead(send, demo, { sellerId: ids.ana })
+    const dealId = decodeId(
+      yield* jsonOf(yield* createDeal(send, demo, { leadId, sellerId: ids.bruno })),
+    ).id
+    yield* addComment(send, demo, dealId, "Ligar amanhã")
+    const lastActivityOf = (cookie: string) =>
+      Effect.gen(function* () {
+        const response = yield* send(new Request("http://localhost/leads", { headers: { cookie } }))
+        return decodeLastActivities(yield* jsonOf(response)).find((lead) => lead.id === leadId)
+          ?.lastActivity
+      })
+    expect(yield* lastActivityOf(ana)).toBeNull()
+    expect(yield* lastActivityOf(demo)).toMatchObject({ authorName: "Conta Demo" })
+    expect(yield* jsonOf(yield* getDeal(send, bruno, dealId))).toMatchObject({
+      lead: { lastActivity: { authorName: "Conta Demo" } },
+    })
+  }).pipe(Effect.scoped),
+)

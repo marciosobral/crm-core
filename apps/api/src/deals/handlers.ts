@@ -41,7 +41,10 @@ export const DealsLive = HttpApiBuilder.group(CrmApi, "deals", (handlers) =>
           const scope = hasPermission(user, "deal.see_all") ? {} : { sellerId: user.id }
           const deal = yield* deals.findById(params.id, scope)
           if (Option.isNone(deal)) return yield* new HttpApiError.NotFound()
-          const lead = yield* leads.findById(deal.value.lead.id)
+          const lead = yield* leads.findById(
+            deal.value.lead.id,
+            hasPermission(user, "deal.see_all") ? {} : { activitySellerId: user.id },
+          )
           if (Option.isNone(lead)) return yield* Effect.die(new Error("Deal lead not found"))
           return new DealDetails({ deal: deal.value, lead: lead.value })
         }).pipe(Effect.catchTag("SqlError", failUnavailable)),

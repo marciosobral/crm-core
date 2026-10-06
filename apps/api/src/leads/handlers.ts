@@ -23,6 +23,7 @@ export const LeadsLive = HttpApiBuilder.group(CrmApi, "leads", (handlers) =>
             ...(sellerId === undefined ? {} : { sellerId }),
             ...(query.search === undefined ? {} : { search: query.search }),
             ...(query.status === undefined ? {} : { status: query.status }),
+            ...(hasPermission(user, "deal.see_all") ? {} : { activitySellerId: user.id }),
           })
         }).pipe(Effect.catchTag("SqlError", failUnavailable)),
       )
