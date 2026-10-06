@@ -166,7 +166,12 @@ function NewDeal() {
   return (
     <>
       <TopBar title="Cadastrar Novo Negócio" />
-      <form ref={formRef} onSubmit={onSubmit} noValidate className="p-4 md:p-8">
+      <form
+        ref={formRef}
+        onSubmit={onSubmit}
+        noValidate
+        className="px-4 pt-4 pb-assistant-clearance md:px-8 md:pt-8"
+      >
         <div className="w-full max-w-[800px] space-y-6 rounded-xl border border-line bg-surface p-5 md:p-8">
           <h2 className="font-heading text-lg font-bold leading-none">
             Vincular Negócio ao Pipeline

@@ -58,7 +58,7 @@ function DealPage() {
       </TopBar>
       <div className="min-h-0 flex-1 overflow-y-auto lg:overflow-hidden">
         {details ? (
-          <div className="grid grid-cols-1 gap-6 p-4 md:p-8 lg:h-full lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]">
+          <div className="grid grid-cols-1 gap-6 px-4 pt-4 pb-assistant-clearance md:px-8 md:pt-8 lg:h-full lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]">
             <div className="space-y-6 lg:min-h-0 lg:overflow-y-auto">
               <section className="rounded-xl border border-line bg-surface p-5">
                 <DealSummary

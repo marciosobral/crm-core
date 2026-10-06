@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Outlet, redirect, useRouter } from "@tanstack/react-router"
 import { HttpApiError } from "effect/unstable/httpapi"
+import { useState } from "react"
+import { AssistantWidget } from "#src/components/assistant/assistant-widget.tsx"
 import { AppShell } from "#src/components/layout/app-shell.tsx"
 import { UserFooter } from "#src/components/layout/user-footer.tsx"
 import { runApi } from "#src/lib/api-client.ts"
@@ -20,6 +22,8 @@ function AuthenticatedLayout() {
   const { data: user } = useSuspenseQuery(meQueryOptions)
   const queryClient = useQueryClient()
   const router = useRouter()
+  const [isAssistantSheetOpen, setIsAssistantSheetOpen] = useState(false)
+  const [isNavOpen, setIsNavOpen] = useState(false)
 
   const logoutMutation = useMutation({
     mutationKey: [authQueryKey, "logout"],
@@ -32,16 +36,21 @@ function AuthenticatedLayout() {
   })
 
   return (
-    <AppShell
-      footer={
-        <UserFooter
-          user={user}
-          onLogout={() => logoutMutation.mutate()}
-          isLoggingOut={logoutMutation.isPending}
-        />
-      }
-    >
-      <Outlet />
-    </AppShell>
+    <>
+      <AppShell
+        isCovered={isAssistantSheetOpen}
+        onNavOpenChange={setIsNavOpen}
+        footer={
+          <UserFooter
+            user={user}
+            onLogout={() => logoutMutation.mutate()}
+            isLoggingOut={logoutMutation.isPending}
+          />
+        }
+      >
+        <Outlet />
+      </AppShell>
+      <AssistantWidget onSheetChange={setIsAssistantSheetOpen} isPillInert={isNavOpen} />
+    </>
   )
 }

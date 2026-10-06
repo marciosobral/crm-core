@@ -129,7 +129,7 @@ function LeadList() {
         />
       </FiltersBar>
 
-      <section className="p-4 md:p-8">
+      <section className="px-4 pt-4 pb-assistant-clearance md:px-8 md:pt-8">
         {leadsQuery.isError ? (
           <div className="rounded-xl border border-line bg-surface px-4 py-10 text-center">
             <p role="alert" className="text-sm text-red-400">

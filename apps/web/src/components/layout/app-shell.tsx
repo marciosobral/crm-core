@@ -6,14 +6,26 @@ import { desktopMediaQuery } from "#src/lib/media.ts"
 import { NavDrawerContext } from "./nav-drawer-context.ts"
 import { SidebarNav } from "./sidebar-nav.tsx"
 
-type AppShellProps = { footer: ReactNode; children: ReactNode }
+// `isCovered` makes the whole shell inert while something full-screen (the assistant sheet) is on top of it.
+// `onNavOpenChange` lets siblings outside the shell (the assistant pill) react to the open nav drawer.
+type AppShellProps = {
+  footer: ReactNode
+  isCovered: boolean
+  onNavOpenChange: (isNavOpen: boolean) => void
+  children: ReactNode
+}
 
-export function AppShell({ footer, children }: AppShellProps) {
+export function AppShell({ footer, isCovered, onNavOpenChange, children }: AppShellProps) {
   const [isNavOpen, setIsNavOpen] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const sidebarRef = useRef<HTMLElement>(null)
   const wasNavOpenRef = useRef(false)
   const closeNav = () => setIsNavOpen(false)
+
+  useEffect(() => {
+    onNavOpenChange(isNavOpen)
+    return () => onNavOpenChange(false)
+  }, [isNavOpen, onNavOpenChange])
 
   useEffect(() => {
     if (!isNavOpen) return
@@ -40,7 +52,7 @@ export function AppShell({ footer, children }: AppShellProps) {
 
   return (
     <NavDrawerContext value={{ isNavOpen, openNav: () => setIsNavOpen(true), menuButtonRef }}>
-      <div className="flex min-h-dvh">
+      <div inert={isCovered} className="flex min-h-dvh">
         {isNavOpen && (
           <div
             aria-hidden="true"

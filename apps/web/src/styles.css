@@ -114,6 +114,24 @@
   --color-status-lost: #f87171;
 }
 
+/* The floating assistant pill's size and distance from the corner. The pill reads them and so does the
+   bottom clearance of scrollable content, so the last row never ends up under the pill. */
+:root {
+  --assistant-pill-size: 3rem;
+  --assistant-pill-offset: 1rem;
+}
+
+@media (min-width: 48rem) {
+  :root {
+    --assistant-pill-size: 2.75rem;
+    --assistant-pill-offset: 1.5rem;
+  }
+}
+
+@utility pb-assistant-clearance {
+  padding-bottom: calc(var(--assistant-pill-size) + var(--assistant-pill-offset) * 2);
+}
+
 @layer base {
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]) {

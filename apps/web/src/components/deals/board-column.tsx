@@ -86,7 +86,7 @@ export function BoardColumn({
       </header>
       <ul
         className={cn(
-          "flex min-h-24 flex-1 flex-col gap-3 overflow-y-auto rounded-xl border border-transparent p-2 transition-colors",
+          "flex min-h-24 flex-1 flex-col gap-3 overflow-y-auto rounded-xl border border-transparent px-2 pt-2 pb-assistant-clearance transition-colors",
           isOver && "border-brand/40 bg-brand/5",
         )}
       >
