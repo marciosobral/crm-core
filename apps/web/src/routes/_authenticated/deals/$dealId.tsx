@@ -41,6 +41,7 @@ function DealPage() {
   })
   const [closeMode, setCloseMode] = useState<"WON" | "LOST" | undefined>(undefined)
   const details = detailsQuery.data
+  const isNotFound = detailsQuery.isError || !isValidDealId
 
   return (
     <div className="flex h-dvh min-w-0 flex-col">
@@ -58,7 +59,7 @@ function DealPage() {
       </TopBar>
       <div className="min-h-0 flex-1 overflow-y-auto lg:overflow-hidden">
         {details ? (
-          <div className="grid grid-cols-1 gap-6 p-4 md:p-8 lg:h-full lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]">
+          <div className="grid grid-cols-1 gap-6 px-4 pt-4 pb-assistant-clearance md:px-8 md:pt-8 lg:h-full lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]">
             <div className="space-y-6 lg:min-h-0 lg:overflow-y-auto">
               <section className="rounded-xl border border-line bg-surface p-5">
                 <DealSummary
@@ -111,11 +112,9 @@ function DealPage() {
           <div className="p-4 md:p-8">
             <div className="space-y-3 rounded-xl border border-line bg-surface px-4 py-10 text-center">
               <p className="text-sm text-muted">
-                {detailsQuery.isError || !isValidDealId
-                  ? "Negócio não encontrado."
-                  : "Carregando..."}
+                {isNotFound ? "Negócio não encontrado." : "Carregando..."}
               </p>
-              {(detailsQuery.isError || !isValidDealId) && (
+              {isNotFound && (
                 <Link to="/deals" className="text-sm font-semibold text-brand hover:underline">
                   Voltar para negócios
                 </Link>

@@ -1,5 +1,5 @@
 import { NodeHttpServer } from "@effect/platform-node"
-import { Context, Effect, Layer } from "effect"
+import { Clock, Context, Effect, Layer } from "effect"
 import type { LanguageModel } from "effect/unstable/ai"
 import { HttpRouter } from "effect/unstable/http"
 import { SqlClient } from "effect/unstable/sql"
@@ -13,12 +13,14 @@ export type Send = (request: Request) => Effect.Effect<Response>
 export const makeTestApiWith = (languageModel: Layer.Layer<LanguageModel.LanguageModel>) =>
   Effect.gen(function* () {
     const database = yield* Layer.build(TestDatabase)
+    const clock = yield* Clock.Clock
     const { handler } = yield* Effect.acquireRelease(
       Effect.sync(() =>
         HttpRouter.toWebHandler(
           ApiRoutes.pipe(
             Layer.provide(Layer.succeedContext(database)),
             Layer.provide(languageModel),
+            Layer.provide(Layer.succeed(Clock.Clock)(clock)),
             Layer.provide(NodeHttpServer.layerHttpServices),
           ),
           { disableLogger: true },

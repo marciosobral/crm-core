@@ -1,6 +1,7 @@
 import { PgliteClient } from "@effect/sql-pglite"
 import { ConfigProvider, Effect, Layer, Schema } from "effect"
 import type { SqlClient } from "effect/unstable/sql"
+import { PgliteUtcSession } from "#src/platform/db.ts"
 import { MigrationsLive } from "#src/platform/migrations/index.ts"
 
 export const demoPassword = "demo-test-password"
@@ -13,7 +14,7 @@ export const seededEmails = {
 } as const
 
 export const TestDatabase = MigrationsLive.pipe(
-  Layer.provideMerge(PgliteClient.layer()),
+  Layer.provideMerge(PgliteUtcSession.pipe(Layer.provideMerge(PgliteClient.layer()))),
   Layer.provide(
     ConfigProvider.layer(
       ConfigProvider.fromUnknown({

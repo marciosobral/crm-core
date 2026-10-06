@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "node --watch --env-file-if-exists=.env src/main.ts",
     "start": "node src/main.ts",
+    "eval:assistant": "node --env-file-if-exists=.env src/assistant/assistant.eval.ts",
     "typecheck": "tsc -p .",
     "test": "vitest run"
   },

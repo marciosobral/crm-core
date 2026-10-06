@@ -78,10 +78,9 @@ export function useSelect({
   }, [])
 
   const isServerSearch = isSearchable && onSearchChange !== undefined
-  const selectedText =
-    options.find((option) => option.value === value)?.label ??
-    (value === "" ? undefined : selectedLabel) ??
-    ""
+  const selectedOption = options.find((option) => option.value === value)
+  const fallbackLabel = value === "" ? undefined : selectedLabel
+  const selectedText = selectedOption?.label ?? fallbackLabel ?? ""
   // Until the debounced search fires, the options on screen belong to a previous search.
   const isStale = isServerSearch && typedText !== undefined && typedText !== searchedText
   const isLoadingShown = isLoading || isStale
@@ -92,13 +91,9 @@ export function useSelect({
   const isListShown = isOpen && !isLoadingShown && visibleOptions.length > 0
   const currentIndex = isListShown && activeIndex < visibleOptions.length ? activeIndex : -1
   const selectedIndex = visibleOptions.findIndex((option) => option.value === value)
-  const statusMessage = isOpen
-    ? isLoadingShown
-      ? "Carregando..."
-      : visibleOptions.length === 0
-        ? emptyMessage
-        : ""
-    : ""
+  let statusMessage = ""
+  if (isOpen && isLoadingShown) statusMessage = "Carregando..."
+  else if (isOpen && visibleOptions.length === 0) statusMessage = emptyMessage
 
   const open = () => {
     if (isOpen) return

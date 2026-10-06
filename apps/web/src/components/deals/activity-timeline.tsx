@@ -1,25 +1,10 @@
-import type { DealActivity } from "@crm/contract"
-import { dealStatusLabels, lostReasonLabels } from "@crm/contract"
+import { type DealActivity, describeDealActivity } from "@crm/contract"
 import { DateTime } from "effect"
 import { Activity, MessageSquare } from "lucide-react"
+import type { ReactNode } from "react"
 import { cn } from "#src/lib/cn.ts"
 import { formatRelative } from "#src/lib/format.ts"
 import { CommentComposer } from "./comment-composer.tsx"
-
-const eventText = (event: Exclude<DealActivity, { kind: "COMMENT" }>) => {
-  switch (event.kind) {
-    case "CREATED":
-      return "Negócio criado"
-    case "SELLER_ASSIGNED":
-      return `Vendedor ${event.seller.name} atribuído ao negócio`
-    case "STATUS_CHANGED":
-      return `Status alterado para ${dealStatusLabels[event.status]}`
-    case "WON":
-      return "Negócio marcado como ganho"
-    case "LOST":
-      return `Negócio marcado como perdido: ${lostReasonLabels[event.lostReason]}`
-  }
-}
 
 function TimelineItem({ activity }: { activity: DealActivity }) {
   const isComment = activity.kind === "COMMENT"
@@ -59,7 +44,7 @@ function TimelineItem({ activity }: { activity: DealActivity }) {
             isComment ? "text-muted" : "text-white",
           )}
         >
-          {activity.kind === "COMMENT" ? activity.body : eventText(activity)}
+          {describeDealActivity(activity)}
         </p>
       </article>
     </li>
@@ -81,6 +66,25 @@ export function ActivityTimeline({
   shouldFocusComposer,
   onComposerFocused,
 }: ActivityTimelineProps) {
+  let timeline: ReactNode
+  if (isError)
+    timeline = (
+      <p role="alert" className="text-sm text-red-400">
+        Não foi possível carregar as atividades.
+      </p>
+    )
+  else if (!activities) timeline = <p className="text-sm text-muted">Carregando...</p>
+  else if (activities.length === 0)
+    timeline = <p className="text-sm text-muted">Nenhuma atividade ainda.</p>
+  else
+    timeline = (
+      <ol className="space-y-4">
+        {activities.map((activity) => (
+          <TimelineItem key={activity.id} activity={activity} />
+        ))}
+      </ol>
+    )
+
   return (
     <section
       aria-labelledby="activity-timeline-title"
@@ -89,23 +93,7 @@ export function ActivityTimeline({
       <h2 id="activity-timeline-title" className="font-heading text-base font-bold text-white">
         Linha do Tempo de Atividades
       </h2>
-      <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
-        {isError ? (
-          <p role="alert" className="text-sm text-red-400">
-            Não foi possível carregar as atividades.
-          </p>
-        ) : !activities ? (
-          <p className="text-sm text-muted">Carregando...</p>
-        ) : activities.length === 0 ? (
-          <p className="text-sm text-muted">Nenhuma atividade ainda.</p>
-        ) : (
-          <ol className="space-y-4">
-            {activities.map((activity) => (
-              <TimelineItem key={activity.id} activity={activity} />
-            ))}
-          </ol>
-        )}
-      </div>
+      <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">{timeline}</div>
       <CommentComposer
         dealId={dealId}
         variant="page"

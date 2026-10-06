@@ -6,14 +6,26 @@ import { desktopMediaQuery } from "#src/lib/media.ts"
 import { NavDrawerContext } from "./nav-drawer-context.ts"
 import { SidebarNav } from "./sidebar-nav.tsx"
 
-type AppShellProps = { footer: ReactNode; children: ReactNode }
+// `isCovered` makes the whole shell inert while something full-screen (the assistant sheet) is on top of it.
+// `onNavOpenChange` lets siblings outside the shell (the assistant pill) react to the open nav drawer.
+type AppShellProps = {
+  footer: ReactNode
+  isCovered: boolean
+  onNavOpenChange: (isNavOpen: boolean) => void
+  children: ReactNode
+}
 
-export function AppShell({ footer, children }: AppShellProps) {
+export function AppShell({ footer, isCovered, onNavOpenChange, children }: AppShellProps) {
   const [isNavOpen, setIsNavOpen] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const sidebarRef = useRef<HTMLElement>(null)
   const wasNavOpenRef = useRef(false)
   const closeNav = () => setIsNavOpen(false)
+
+  useEffect(() => {
+    onNavOpenChange(isNavOpen)
+    return () => onNavOpenChange(false)
+  }, [isNavOpen, onNavOpenChange])
 
   useEffect(() => {
     if (!isNavOpen) return
@@ -38,9 +50,13 @@ export function AppShell({ footer, children }: AppShellProps) {
     wasNavOpenRef.current = isNavOpen
   }, [isNavOpen])
 
+  const drawerDialogProps = isNavOpen
+    ? { role: "dialog", "aria-modal": true, "aria-label": "Menu" }
+    : {}
+
   return (
     <NavDrawerContext value={{ isNavOpen, openNav: () => setIsNavOpen(true), menuButtonRef }}>
-      <div className="flex min-h-dvh">
+      <div inert={isCovered} className="flex min-h-dvh">
         {isNavOpen && (
           <div
             aria-hidden="true"
@@ -51,7 +67,7 @@ export function AppShell({ footer, children }: AppShellProps) {
         <aside
           ref={sidebarRef}
           id="app-sidebar"
-          {...(isNavOpen ? { role: "dialog", "aria-modal": true, "aria-label": "Menu" } : {})}
+          {...drawerDialogProps}
           className={cn(
             "fixed inset-y-0 left-0 z-40 flex w-60 shrink-0 flex-col justify-between border-r border-line bg-surface px-6 pb-6 duration-200 lg:sticky lg:top-0 lg:h-dvh lg:translate-x-0",
             // Visibility only transitions on close, so the drawer is focusable the moment it opens and stays visible while it slides out.

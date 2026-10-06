@@ -1,11 +1,12 @@
 import { Context, Effect, Layer, Schema } from "effect"
 import { SqlClient, type SqlError, SqlSchema } from "effect/unstable/sql"
 import { dieOnSchemaError } from "#src/platform/sql.ts"
+import { AiFeature } from "./features.ts"
 
 const NewAiUsage = Schema.Struct({
   userId: Schema.String,
   dealId: Schema.NullOr(Schema.String),
-  feature: Schema.Literals(["NEXT_STEP"]),
+  feature: AiFeature,
   provider: Schema.String,
   model: Schema.String,
   reasoningEffort: Schema.NullOr(Schema.String),
@@ -22,7 +23,7 @@ export class AiUsageRepository extends Context.Service<
   {
     readonly record: (entry: typeof NewAiUsage.Type) => Effect.Effect<void, SqlError.SqlError>
   }
->()("AiUsageRepository") {}
+>()("crm/AiUsageRepository") {}
 
 export const AiUsageRepositoryLive = Layer.effect(
   AiUsageRepository,

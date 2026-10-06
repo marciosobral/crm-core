@@ -9,6 +9,7 @@ import createDeals from "./0006_create_deals.ts"
 import addDealClosing from "./0007_add_deal_closing.ts"
 import createDealActivity from "./0008_create_deal_activity.ts"
 import createAiUsage from "./0009_create_ai_usage.ts"
+import createAssistantConversations from "./0010_create_assistant_conversations.ts"
 
 const loader = Migrator.fromRecord({
   "0001_create_users": createUsers,
@@ -20,6 +21,7 @@ const loader = Migrator.fromRecord({
   "0007_add_deal_closing": addDealClosing,
   "0008_create_deal_activity": createDealActivity,
   "0009_create_ai_usage": createAiUsage,
+  "0010_create_assistant_conversations": createAssistantConversations,
 })
 
 // The generic migrator only needs SqlClient, so the same layer serves Postgres and PGlite

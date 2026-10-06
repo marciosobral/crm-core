@@ -2,6 +2,7 @@ import { CrmApi, CurrentUser, hasPermission, InvalidLeadSeller } from "@crm/cont
 import { Effect } from "effect"
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
 import { requirePermission } from "#src/auth/permissions.ts"
+import { activityScopeOf, leadScopeOf } from "#src/auth/scope.ts"
 import { failUnavailable, nullIfBlank } from "#src/platform/http.ts"
 import { SellersRepository } from "#src/sellers/repository.ts"
 import { LeadsRepository } from "./repository.ts"
@@ -15,14 +16,18 @@ export const LeadsLive = HttpApiBuilder.group(CrmApi, "leads", (handlers) =>
       .handle("list", ({ query }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          const canSeeAll = hasPermission(user, "lead.see_all")
-          if (!canSeeAll && query.sellerId !== undefined && query.sellerId !== user.id) return []
-          const sellerId = query.sellerId ?? (canSeeAll ? undefined : user.id)
+          const scope = leadScopeOf(user)
+          const asksForAnotherSeller =
+            scope.sellerId !== undefined &&
+            query.sellerId !== undefined &&
+            query.sellerId !== scope.sellerId
+          if (asksForAnotherSeller) return []
+          const sellerId = query.sellerId ?? scope.sellerId
           return yield* leads.list({
             ...(sellerId === undefined ? {} : { sellerId }),
             ...(query.search === undefined ? {} : { search: query.search }),
             ...(query.status === undefined ? {} : { status: query.status }),
-            ...(hasPermission(user, "deal.see_all") ? {} : { activitySellerId: user.id }),
+            ...activityScopeOf(user),
           })
         }).pipe(Effect.catchTag("SqlError", failUnavailable)),
       )

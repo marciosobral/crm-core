@@ -1,7 +1,10 @@
 import { Schema } from "effect"
 import { HttpApiEndpoint, HttpApiError, HttpApiGroup, HttpApiSchema } from "effect/unstable/httpapi"
+import { AssistantRateLimited, AssistantUnavailable } from "./assistant.ts"
 import { Authorization } from "./auth.ts"
-import { DealStatus, OpenDealStatus } from "./deal-status.ts"
+import { CalendarDate } from "./dates.ts"
+import { ListDealsQuery } from "./deal-filters.ts"
+import { DealStatus, dealStatusLabels, OpenDealStatus } from "./deal-status.ts"
 import { Lead } from "./leads.ts"
 import { Seller } from "./sellers.ts"
 import { requiredText, trimmedText } from "./text.ts"
@@ -46,28 +49,16 @@ export class Deal extends Schema.Class<Deal>("Deal")({
   closedAt: Schema.NullOr(Schema.DateTimeUtcFromString),
 }) {}
 
-const isCalendarDate = (text: string) => {
-  const date = new Date(`${text}T00:00:00Z`)
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === text
-}
-
 export const CreateDealPayload = Schema.Struct({
   title: requiredText(120),
   leadId: Schema.String.check(Schema.isUUID()),
   sellerId: Schema.optionalKey(Schema.String.check(Schema.isUUID())),
   valueCents: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 99_999_999_999 })),
   status: OpenDealStatus,
-  expectedCloseDate: Schema.optionalKey(
-    Schema.String.check(Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/), Schema.makeFilter(isCalendarDate)),
-  ),
+  expectedCloseDate: Schema.optionalKey(CalendarDate),
   description: Schema.optionalKey(Schema.String.check(Schema.isMaxLength(2000))),
 })
 export type CreateDealPayload = typeof CreateDealPayload.Type
-
-export const ListDealsQuery = Schema.Struct({
-  search: Schema.optionalKey(trimmedText(100)),
-  sellerId: Schema.optionalKey(Schema.String.check(Schema.isUUID())),
-})
 
 export const MoveDealPayload = Schema.Struct({ status: OpenDealStatus })
 
@@ -118,6 +109,24 @@ export const DealActivity = Schema.Union([
 ])
 export type DealActivity = typeof DealActivity.Type
 
+// The activity as the timeline shows it, with the author left to the caller.
+export const describeDealActivity = (activity: DealActivity) => {
+  switch (activity.kind) {
+    case "COMMENT":
+      return activity.body
+    case "CREATED":
+      return "Negócio criado"
+    case "SELLER_ASSIGNED":
+      return `Vendedor ${activity.seller.name} atribuído ao negócio`
+    case "STATUS_CHANGED":
+      return `Status alterado para ${dealStatusLabels[activity.status]}`
+    case "WON":
+      return "Negócio marcado como ganho"
+    case "LOST":
+      return `Negócio marcado como perdido: ${lostReasonLabels[activity.lostReason]}`
+  }
+}
+
 export const commentMaxLength = 2000
 
 export const AddDealCommentPayload = Schema.Struct({
@@ -143,18 +152,6 @@ export class DealClosed extends Schema.TaggedError<DealClosed>()(
   "DealClosed",
   {},
   { httpApiStatus: 409 },
-) {}
-
-export class AssistantRateLimited extends Schema.TaggedError<AssistantRateLimited>()(
-  "AssistantRateLimited",
-  { retryAfterSeconds: Schema.Int },
-  { httpApiStatus: 429 },
-) {}
-
-export class AssistantUnavailable extends Schema.TaggedError<AssistantUnavailable>()(
-  "AssistantUnavailable",
-  {},
-  { httpApiStatus: 503 },
 ) {}
 
 const DealIdParams = { id: Schema.String.check(Schema.isUUID()) }

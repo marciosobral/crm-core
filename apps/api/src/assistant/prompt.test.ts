@@ -1,6 +1,6 @@
-import { Deal, DealActivity } from "@crm/contract"
+import { businessTimeZone, Deal, DealActivity } from "@crm/contract"
 import { expect, it } from "@effect/vitest"
-import { Schema } from "effect"
+import { DateTime, Schema } from "effect"
 import { nextStepPrompt } from "./prompt.ts"
 
 const ana = { id: "00000000-0000-4000-8000-000000000001", name: "Ana Souza" }
@@ -29,8 +29,10 @@ const comment = (index: number) =>
     body: `Comentário ${index}`,
   })
 
+const now = DateTime.makeZonedUnsafe("2026-10-06T13:00:00Z", { timeZone: businessTimeZone })
+
 const textOf = (deal: Deal, activities: ReadonlyArray<DealActivity>) =>
-  JSON.stringify(nextStepPrompt(deal, activities))
+  JSON.stringify(nextStepPrompt(deal, activities, now))
 
 it("describes the deal and lists the newest activities oldest first", () => {
   const newestFirst = Array.from({ length: 25 }, (_, index) => comment(24 - index))
@@ -45,4 +47,17 @@ it("describes the deal and lists the newest activities oldest first", () => {
 
 it("states when the deal has no activity", () => {
   expect(textOf(deal, [])).toContain("No activity yet")
+})
+
+it("states now and shows timeline times in the business time zone", () => {
+  const lateComment = Schema.decodeUnknownSync(DealActivity)({
+    kind: "COMMENT",
+    id: "late",
+    author: ana,
+    createdAt: "2026-10-06T01:30:00.000Z",
+    body: "Ligação tarde da noite",
+  })
+  const text = textOf(deal, [lateComment])
+  expect(text).toContain(`Now: 2026-10-06 10:00 (${businessTimeZone})`)
+  expect(text).toContain("- 2026-10-05 22:30 Ana Souza comentou: Ligação tarde da noite")
 })

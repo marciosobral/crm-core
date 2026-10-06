@@ -1,8 +1,16 @@
 import { PgClient } from "@effect/sql-pg"
 import { Config, Effect, Layer, Option } from "effect"
-import type { SqlClient, SqlError } from "effect/unstable/sql"
+import { SqlClient, type SqlError } from "effect/unstable/sql"
 import { DatabaseConfig } from "./config.ts"
 import { MigrationsLive } from "./migrations/index.ts"
+
+// PGlite has no connection options, so the session zone is set once after the client starts.
+export const PgliteUtcSession = Layer.effectDiscard(
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`SET TIME ZONE 'UTC'`
+  }),
+)
 
 export const SqlLive: Layer.Layer<SqlClient.SqlClient, SqlError.SqlError | Config.ConfigError> =
   Layer.unwrap(
@@ -14,10 +22,10 @@ export const SqlLive: Layer.Layer<SqlClient.SqlClient, SqlError.SqlError | Confi
         return Option.match(pgliteDataDir, {
           onNone: () => PgliteClient.layer(),
           onSome: (dataDir) => PgliteClient.layer({ dataDir }),
-        })
+        }).pipe((client) => PgliteUtcSession.pipe(Layer.provideMerge(client)))
       }
       const url = yield* Config.Redacted("DATABASE_URL")
-      return PgClient.layer({ url })
+      return PgClient.layer({ url, startupParameters: { timezone: "UTC" } })
     }),
   )
 export const DatabaseLive = MigrationsLive.pipe(Layer.provideMerge(SqlLive))

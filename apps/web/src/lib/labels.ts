@@ -1,9 +1,4 @@
-import type { DealStatus, LeadSource, Role } from "@crm/contract"
-
-export const roleLabels: Record<Role, string> = {
-  SUPERVISOR: "Supervisor",
-  SELLER: "Vendedor",
-}
+import type { DealStatus, LeadSource } from "@crm/contract"
 
 export const sourceLabels: Record<LeadSource, string> = {
   WEBSITE: "Site",

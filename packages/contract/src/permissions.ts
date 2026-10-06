@@ -3,6 +3,11 @@ import { Schema } from "effect"
 export const Role = Schema.Literals(["SUPERVISOR", "SELLER"])
 export type Role = typeof Role.Type
 
+export const roleLabels: Record<Role, string> = {
+  SUPERVISOR: "Supervisor",
+  SELLER: "Vendedor",
+}
+
 export const Permission = Schema.Literals([
   "lead.create",
   "lead.see_all",
@@ -14,6 +19,7 @@ export const Permission = Schema.Literals([
   "deal.close",
   "deal.comment",
   "deal.suggest",
+  "assistant.chat",
 ])
 export type Permission = typeof Permission.Type
 
@@ -29,8 +35,17 @@ export const rolePermissions: Record<Role, ReadonlyArray<Permission>> = {
     "deal.close",
     "deal.comment",
     "deal.suggest",
+    "assistant.chat",
   ],
-  SELLER: ["lead.create", "deal.create", "deal.move", "deal.close", "deal.comment", "deal.suggest"],
+  SELLER: [
+    "lead.create",
+    "deal.create",
+    "deal.move",
+    "deal.close",
+    "deal.comment",
+    "deal.suggest",
+    "assistant.chat",
+  ],
 }
 
 export const hasPermission = (

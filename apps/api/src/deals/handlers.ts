@@ -1,27 +1,22 @@
 import {
-  AssistantRateLimited,
-  AssistantUnavailable,
   CrmApi,
   CurrentUser,
   DealClosed,
   DealDetails,
-  DealNextStep,
   hasPermission,
   InvalidDealLead,
   InvalidDealSeller,
   isClosedStatus,
   type User,
 } from "@crm/contract"
-import { Duration, Effect, Option, Result } from "effect"
-import { AiError, LanguageModel, type Response } from "effect/unstable/ai"
+import { Effect, Option } from "effect"
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
-import { RateLimiter } from "effect/unstable/persistence"
-import { nextStepPrompt } from "#src/assistant/prompt.ts"
-import { AiUsageRepository } from "#src/assistant/repository.ts"
+import { Assistant } from "#src/assistant/service.ts"
 import { requirePermission } from "#src/auth/permissions.ts"
+import { activityScopeOf, dealScopeOf } from "#src/auth/scope.ts"
 import { LeadsRepository } from "#src/leads/repository.ts"
-import { AssistantConfig } from "#src/platform/config.ts"
 import { failUnavailable, nullIfBlank } from "#src/platform/http.ts"
+import { businessTime } from "#src/platform/time.ts"
 import { SellersRepository } from "#src/sellers/repository.ts"
 import { DealsRepository } from "./repository.ts"
 
@@ -30,44 +25,12 @@ export const DealsLive = HttpApiBuilder.group(CrmApi, "deals", (handlers) =>
     const deals = yield* DealsRepository
     const sellers = yield* SellersRepository
     const leads = yield* LeadsRepository
-    const languageModel = yield* LanguageModel.LanguageModel
-    const rateLimiter = yield* RateLimiter.RateLimiter
-    const aiUsage = yield* AiUsageRepository
-    const assistantConfig = yield* AssistantConfig
-
-    const recordNextStepUsage = (
-      user: User,
-      dealId: string,
-      durationMs: number,
-      usage: Response.Usage | null,
-    ) =>
-      aiUsage
-        .record({
-          userId: user.id,
-          dealId,
-          feature: "NEXT_STEP",
-          provider: assistantConfig.provider,
-          model: assistantConfig.model,
-          reasoningEffort: assistantConfig.reasoningEffort,
-          outcome: usage === null ? "FAILED" : "SUCCEEDED",
-          inputTokens: usage?.inputTokens.total ?? null,
-          cachedInputTokens: usage?.inputTokens.cacheRead ?? null,
-          outputTokens: usage?.outputTokens.total ?? null,
-          reasoningTokens: usage?.outputTokens.reasoning ?? null,
-          durationMs: Math.round(durationMs),
-        })
-        .pipe(
-          Effect.catchTag("SqlError", (error) =>
-            Effect.logWarning("Recording AI usage failed").pipe(
-              Effect.annotateLogs({ dealId, error: error.reason._tag }),
-            ),
-          ),
-        )
+    const assistant = yield* Assistant
+    const { businessNow, businessToday } = yield* businessTime
 
     const findVisibleDeal = (user: User, id: string) =>
       Effect.gen(function* () {
-        const scope = hasPermission(user, "deal.see_all") ? {} : { sellerId: user.id }
-        const deal = yield* deals.findById(id, scope)
+        const deal = yield* deals.findById(id, dealScopeOf(user))
         if (Option.isNone(deal)) return yield* new HttpApiError.NotFound()
         return deal.value
       })
@@ -76,23 +39,25 @@ export const DealsLive = HttpApiBuilder.group(CrmApi, "deals", (handlers) =>
       .handle("list", ({ query }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
-          const canSeeAll = hasPermission(user, "deal.see_all")
-          if (!canSeeAll && query.sellerId !== undefined && query.sellerId !== user.id) return []
-          const sellerId = query.sellerId ?? (canSeeAll ? undefined : user.id)
-          return yield* deals.list({
-            ...(sellerId === undefined ? {} : { sellerId }),
-            ...(query.search === undefined ? {} : { search: query.search }),
-          })
+          const scope = dealScopeOf(user)
+          const asksForAnotherSeller =
+            scope.sellerId !== undefined &&
+            query.sellerId !== undefined &&
+            query.sellerId !== scope.sellerId
+          if (asksForAnotherSeller) return []
+          const sellerId = query.sellerId ?? scope.sellerId
+          const today = yield* businessToday
+          return yield* deals.list(
+            { ...query, ...(sellerId === undefined ? {} : { sellerId }) },
+            today,
+          )
         }).pipe(Effect.catchTag("SqlError", failUnavailable)),
       )
       .handle("get", ({ params }) =>
         Effect.gen(function* () {
           const user = yield* CurrentUser
           const deal = yield* findVisibleDeal(user, params.id)
-          const lead = yield* leads.findById(
-            deal.lead.id,
-            hasPermission(user, "deal.see_all") ? {} : { activitySellerId: user.id },
-          )
+          const lead = yield* leads.findById(deal.lead.id, activityScopeOf(user))
           if (Option.isNone(lead)) return yield* Effect.die(new Error("Deal lead not found"))
           return new DealDetails({ deal, lead: lead.value })
         }).pipe(Effect.catchTag("SqlError", failUnavailable)),
@@ -183,48 +148,9 @@ export const DealsLive = HttpApiBuilder.group(CrmApi, "deals", (handlers) =>
           const user = yield* requirePermission("deal.suggest")
           const deal = yield* findVisibleDeal(user, params.id)
           if (isClosedStatus(deal.status)) return yield* new DealClosed()
-          yield* rateLimiter
-            .consume({
-              key: `next-step:${user.id}`,
-              limit: 5,
-              window: "1 minute",
-              algorithm: "fixed-window",
-              onExceeded: "fail",
-            })
-            .pipe(
-              Effect.catchTag("RateLimiterError", ({ reason }) =>
-                Effect.fail(
-                  reason._tag === "RateLimitExceeded"
-                    ? new AssistantRateLimited({
-                        retryAfterSeconds: Math.ceil(Duration.toSeconds(reason.retryAfter)),
-                      })
-                    : new AssistantUnavailable(),
-                ),
-              ),
-            )
           const activities = yield* deals.listActivities(params.id)
-          const [duration, result] = yield* languageModel
-            .generateObject({
-              prompt: nextStepPrompt(deal, activities),
-              schema: DealNextStep,
-              objectName: "next_step",
-            })
-            .pipe(Effect.timeout("15 seconds"), Effect.result, Effect.timed)
-          const durationMs = Duration.toMillis(duration)
-          if (Result.isFailure(result)) {
-            const error = result.failure
-            yield* recordNextStepUsage(user, params.id, durationMs, null)
-            yield* Effect.logWarning("Next step suggestion failed").pipe(
-              Effect.annotateLogs({
-                dealId: params.id,
-                error: AiError.isAiError(error) ? error.reason._tag : error._tag,
-              }),
-            )
-            return yield* new AssistantUnavailable()
-          }
-          const { value, usage } = result.success
-          yield* recordNextStepUsage(user, params.id, durationMs, usage)
-          return { action: value.action.trim(), reason: value.reason.trim() }
+          const now = yield* businessNow
+          return yield* assistant.suggestNextStep({ userId: user.id, deal, activities, now })
         }).pipe(Effect.catchTag("SqlError", failUnavailable)),
       )
   }),

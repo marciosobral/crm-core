@@ -1,6 +1,12 @@
-import { type Deal, isClosedStatus, type Lead, lostReasonLabels } from "@crm/contract"
+import {
+  type Deal,
+  formatDealValue,
+  isClosedStatus,
+  type Lead,
+  lostReasonLabels,
+} from "@crm/contract"
 import { StatusBadge } from "#src/components/ui/status-badge.tsx"
-import { formatDate, formatDealValue } from "#src/lib/format.ts"
+import { formatDate } from "#src/lib/format.ts"
 
 type DealSummaryProps = {
   deal: Deal
@@ -69,7 +75,7 @@ export function DealSummary({
           {deal.lostReason && (
             <p className="text-muted">
               Motivo: {lostReasonLabels[deal.lostReason]}
-              {deal.lostNote ? ` — ${deal.lostNote}` : ""}
+              {deal.lostNote ? `. ${deal.lostNote}` : ""}
             </p>
           )}
         </div>

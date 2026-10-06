@@ -64,13 +64,19 @@ it.effect("defaults the assistant to OpenAI with no key", () =>
     expect(config.provider).toBe("openai")
     expect(config.model).toBe("gpt-6-luna")
     expect(config.reasoningEffort).toBe("low")
+    expect(config.maxOutputTokens).toBe(2000)
     expect(Option.isNone(config.apiKey)).toBe(true)
   }),
 )
 
-it.effect("refuses an unknown AI_PROVIDER or AI_REASONING_EFFORT", () =>
+it.effect("refuses an unknown AI_PROVIDER, AI_REASONING_EFFORT or AI_MAX_OUTPUT_TOKENS", () =>
   Effect.gen(function* () {
-    for (const values of [{ AI_PROVIDER: "acme" }, { AI_REASONING_EFFORT: "extreme" }]) {
+    for (const values of [
+      { AI_PROVIDER: "acme" },
+      { AI_REASONING_EFFORT: "extreme" },
+      { AI_MAX_OUTPUT_TOKENS: "0" },
+      { AI_MAX_OUTPUT_TOKENS: "abc" },
+    ]) {
       const exit = yield* Effect.exit(AssistantConfig.parse(ConfigProvider.fromUnknown(values)))
       expect(Exit.isFailure(exit)).toBe(true)
     }

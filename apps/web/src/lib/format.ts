@@ -1,16 +1,5 @@
+import { businessTimeZone, formatBrDate } from "@crm/contract"
 import type { DateTime } from "effect"
-
-const withCents = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
-const withoutCents = new Intl.NumberFormat("pt-BR", {
-  style: "currency",
-  currency: "BRL",
-  maximumFractionDigits: 0,
-})
-
-export const formatCents = (cents: number) => withCents.format(cents / 100)
-
-export const formatDealValue = (cents: number) =>
-  cents % 100 === 0 ? withoutCents.format(cents / 100) : withCents.format(cents / 100)
 
 // Typing fills the value from the right, like a cash register: "8", "89", "890" -> R$ 0,08, R$ 0,89, R$ 8,90.
 export const centsFromInput = (text: string) => {
@@ -31,7 +20,7 @@ export const formatPhone = (digits: string) => {
 }
 
 const saoPauloDate = new Intl.DateTimeFormat("pt-BR", {
-  timeZone: "America/Sao_Paulo",
+  timeZone: businessTimeZone,
   day: "2-digit",
   month: "2-digit",
   year: "numeric",
@@ -40,19 +29,18 @@ const saoPauloDate = new Intl.DateTimeFormat("pt-BR", {
 // A calendar date ("2026-10-15") has no time zone, so it is reordered as text; converting it through Date would shift it a day west of UTC.
 export const formatDate = (value: string | DateTime.Utc) => {
   if (typeof value !== "string") return saoPauloDate.format(value.epochMilliseconds)
-  const [year, month, day] = value.split("-")
-  return `${day}/${month}/${year}`
+  return formatBrDate(value)
 }
 
 const saoPauloDay = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "America/Sao_Paulo",
+  timeZone: businessTimeZone,
   year: "numeric",
   month: "2-digit",
   day: "2-digit",
 })
 
 const saoPauloTime = new Intl.DateTimeFormat("pt-BR", {
-  timeZone: "America/Sao_Paulo",
+  timeZone: businessTimeZone,
   hour: "2-digit",
   minute: "2-digit",
 })
@@ -82,10 +70,13 @@ export const formatRelative = (
   const today = saoPauloDay.format(now)
   const daysAgo = (Date.parse(today) - Date.parse(day)) / 86_400_000
   const time = saoPauloTime.format(value.epochMilliseconds)
-  if (daysAgo === 0) return style === "long" ? `Hoje, ${time}` : `Hoje às ${time}`
+  // A client clock slightly behind the server yields a negative difference, which still means today.
+  if (daysAgo <= 0) return style === "long" ? `Hoje, ${time}` : `Hoje às ${time}`
   if (daysAgo === 1) return style === "long" ? `Ontem, ${time}` : "Ontem"
   const [year, month, dayOfMonth] = day.split("-")
-  const date = `${Number(dayOfMonth)} ${monthAbbreviations[Number(month) - 1]}${year === today.slice(0, 4) ? "" : ` ${year}`}`
+  const dayMonth = `${Number(dayOfMonth)} ${monthAbbreviations[Number(month) - 1]}`
+  const isThisYear = year === today.slice(0, 4)
+  const date = isThisYear ? dayMonth : `${dayMonth} ${year}`
   return style === "long" ? `${date}, ${time}` : date
 }
 

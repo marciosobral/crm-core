@@ -1,7 +1,7 @@
 import { createServer } from "node:http"
-import { CrmApi } from "@crm/contract"
+import { businessTimeZone, CrmApi } from "@crm/contract"
 import { NodeHttpServer } from "@effect/platform-node"
-import { ByteSize, Effect, Layer } from "effect"
+import { ByteSize, DateTime, Effect, Layer } from "effect"
 import {
   HttpEffect,
   type HttpMethod,
@@ -10,9 +10,9 @@ import {
   HttpServerResponse,
 } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
-import { RateLimiter } from "effect/unstable/persistence"
+import { AssistantApiLive } from "#src/assistant/handlers.ts"
 import { AssistantProviderLive } from "#src/assistant/provider.ts"
-import { AiUsageRepositoryLive } from "#src/assistant/repository.ts"
+import { AssistantServicesLive } from "#src/assistant/services.ts"
 import { AuthLive } from "#src/auth/handlers.ts"
 import { LoginAttemptsLive } from "#src/auth/login-attempts.ts"
 import { AuthorizationLive } from "#src/auth/middleware.ts"
@@ -93,19 +93,22 @@ export const ApiRoutes = HttpApiBuilder.layer(CrmApi).pipe(
     LeadsLive,
     DealsLive,
     SellersLive,
+    AssistantApiLive,
     SecurityHeaders,
     BodySizeLimit,
     CrossOriginGuard,
   ]),
   Layer.provide(AuthorizationLive),
   Layer.provide([
-    AiUsageRepositoryLive,
+    AssistantServicesLive.pipe(
+      Layer.provideMerge(
+        Layer.mergeAll(DealsRepositoryLive, LeadsRepositoryLive, SellersRepositoryLive),
+      ),
+    ),
     AuthRepositoryLive,
-    LeadsRepositoryLive,
-    DealsRepositoryLive,
-    SellersRepositoryLive,
-    RateLimiter.layer.pipe(Layer.provide(RateLimiter.layerStoreMemory)),
   ]),
+  // An invalid zone id is a programming error, so it dies at startup instead of widening the layer error type.
+  Layer.provide(DateTime.layerCurrentZoneNamed(businessTimeZone).pipe(Layer.orDie)),
 )
 
 export const ApiLive = ApiRoutes.pipe(

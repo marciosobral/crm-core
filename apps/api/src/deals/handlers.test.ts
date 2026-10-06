@@ -1,8 +1,9 @@
 import { expect, it } from "@effect/vitest"
-import { Effect, Layer, Schema, Stream } from "effect"
-import { AiError, LanguageModel } from "effect/unstable/ai"
-import type { SqlClient } from "effect/unstable/sql"
+import { Effect, Schema } from "effect"
+import { TestClock } from "effect/testing"
+import { aiUsageRows } from "#src/testing/ai-usage.ts"
 import { demoPassword, seededEmails, seededUserIds, sellerPassword } from "#src/testing/database.ts"
+import { decodeId } from "#src/testing/fixtures.ts"
 import {
   jsonOf,
   jsonRequest,
@@ -11,8 +12,13 @@ import {
   makeTestApiWith,
   type Send,
 } from "#src/testing/http.ts"
+import {
+  failingModel,
+  fakeLanguageModel,
+  type PromptMessages,
+  promptText,
+} from "#src/testing/language-model.ts"
 
-const decodeId = Schema.decodeUnknownSync(Schema.Struct({ id: Schema.String }))
 const decodeTitles = Schema.decodeUnknownSync(Schema.Array(Schema.Struct({ title: Schema.String })))
 
 const createLead = (send: Send, cookie: string, overrides: Record<string, unknown> = {}) =>
@@ -524,75 +530,6 @@ const nextStepReply = JSON.stringify({
   reason: "O cliente pediu desconto no pagamento à vista.",
 })
 
-interface Usage {
-  readonly input?: number
-  readonly cachedInput?: number
-  readonly output?: number
-  readonly reasoning?: number
-}
-
-const fakeLanguageModel = (
-  reply: Effect.Effect<string, AiError.AiError>,
-  prompts: Array<string> = [],
-  usage: Usage = {},
-) =>
-  Layer.effect(
-    LanguageModel.LanguageModel,
-    LanguageModel.make({
-      generateText: (options) => {
-        prompts.push(JSON.stringify(options.prompt.content))
-        return Effect.map(reply, (text) => [
-          { type: "text", text },
-          {
-            type: "finish",
-            reason: "stop",
-            usage: {
-              inputTokens: { total: usage.input, cacheRead: usage.cachedInput },
-              outputTokens: { total: usage.output, reasoning: usage.reasoning },
-            },
-          },
-        ])
-      },
-      streamText: () => Stream.empty,
-    }),
-  )
-
-const failingModel = fakeLanguageModel(
-  Effect.fail(
-    AiError.make({
-      module: "Test",
-      method: "generateText",
-      reason: new AiError.UnknownError({}),
-    }),
-  ),
-)
-
-const AiUsageRows = Schema.Array(
-  Schema.Struct({
-    userId: Schema.String,
-    dealId: Schema.NullOr(Schema.String),
-    feature: Schema.String,
-    provider: Schema.String,
-    model: Schema.String,
-    reasoningEffort: Schema.NullOr(Schema.String),
-    outcome: Schema.String,
-    inputTokens: Schema.NullOr(Schema.Number),
-    cachedInputTokens: Schema.NullOr(Schema.Number),
-    outputTokens: Schema.NullOr(Schema.Number),
-    reasoningTokens: Schema.NullOr(Schema.Number),
-    durationMs: Schema.Number,
-  }),
-)
-
-const aiUsageRows = (sql: SqlClient.SqlClient) =>
-  sql`
-    SELECT user_id AS "userId", deal_id AS "dealId", feature, provider, model,
-           reasoning_effort AS "reasoningEffort", outcome, input_tokens AS "inputTokens",
-           cached_input_tokens AS "cachedInputTokens", output_tokens AS "outputTokens",
-           reasoning_tokens AS "reasoningTokens", duration_ms AS "durationMs"
-    FROM ai_usage ORDER BY created_at
-  `.pipe(Effect.flatMap(Schema.decodeUnknownEffect(AiUsageRows)))
-
 const suggestNextStep = (send: Send, cookie: string, id: string) =>
   send(
     new Request(`http://localhost/deals/${id}/next-step`, { method: "POST", headers: { cookie } }),
@@ -600,7 +537,7 @@ const suggestNextStep = (send: Send, cookie: string, id: string) =>
 
 it.effect("suggests the next step from the deal and its timeline", () =>
   Effect.gen(function* () {
-    const prompts: Array<string> = []
+    const prompts: Array<PromptMessages> = []
     const { send, sql } = yield* makeTestApiWith(
       fakeLanguageModel(Effect.succeed(nextStepReply), prompts, {
         input: 500,
@@ -620,10 +557,11 @@ it.effect("suggests the next step from the deal and its timeline", () =>
       reason: "O cliente pediu desconto no pagamento à vista.",
     })
     expect(prompts).toHaveLength(1)
-    expect(prompts[0]).toContain("Academia X - Kit Completo")
-    expect(prompts[0]).toContain("Cliente pediu desconto à vista")
-    expect(prompts[0]).not.toContain("thiago@academiax.com.br")
-    expect(prompts[0]).not.toContain("11983111234")
+    const prompt = promptText(prompts[0] ?? [])
+    expect(prompt).toContain("Academia X - Kit Completo")
+    expect(prompt).toContain("Cliente pediu desconto à vista")
+    expect(prompt).not.toContain("thiago@academiax.com.br")
+    expect(prompt).not.toContain("11983111234")
     const ids = yield* seededUserIds(sql)
     const rows = yield* aiUsageRows(sql)
     expect(rows).toHaveLength(1)
@@ -646,7 +584,7 @@ it.effect("suggests the next step from the deal and its timeline", () =>
 
 it.effect("suggests next steps only on open deals the user can see", () =>
   Effect.gen(function* () {
-    const prompts: Array<string> = []
+    const prompts: Array<PromptMessages> = []
     const { send, sql } = yield* makeTestApiWith(
       fakeLanguageModel(Effect.succeed(nextStepReply), prompts),
     )
@@ -708,5 +646,165 @@ it.effect("limits suggestions to five per user per minute", () =>
     )(yield* jsonOf(limited))
     expect(body.retryAfterSeconds).toBeGreaterThan(0)
     expect((yield* suggestNextStep(send, demo, dealId)).status).toBe(200)
+  }).pipe(Effect.scoped),
+)
+
+const titlesOf = (send: Send, cookie: string, query: string) =>
+  Effect.gen(function* () {
+    const response = yield* listDeals(send, cookie, query)
+    expect(response.status).toBe(200)
+    return decodeTitles(yield* jsonOf(response))
+      .map((deal) => deal.title)
+      .sort()
+  })
+
+const seedFilterDeals = (send: Send, cookie: string) =>
+  Effect.gen(function* () {
+    const leadId = yield* createLead(send, cookie)
+    const create = (body: Record<string, unknown>) =>
+      createDeal(send, cookie, { leadId, ...body }).pipe(
+        Effect.flatMap((response) => jsonOf(response)),
+        Effect.map((created) => decodeId(created).id),
+      )
+    return {
+      small: yield* create({ title: "Small", valueCents: 100_000, status: "NEW" }),
+      medium: yield* create({
+        title: "Medium",
+        valueCents: 500_000,
+        status: "NEGOTIATION",
+        expectedCloseDate: "2026-11-10",
+      }),
+      large: yield* create({
+        title: "Large",
+        valueCents: 900_000,
+        status: "PROPOSAL_SENT",
+        expectedCloseDate: "2026-12-20",
+      }),
+    }
+  })
+
+it.effect("filters deals by status, value range and expected close date", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    const ana = yield* loginAs(send, seededEmails.ana, sellerPassword)
+    yield* seedFilterDeals(send, ana)
+    expect(yield* titlesOf(send, ana, "?statuses=NEGOTIATION,PROPOSAL_SENT")).toEqual([
+      "Large",
+      "Medium",
+    ])
+    expect(yield* titlesOf(send, ana, "?statuses=NEW")).toEqual(["Small"])
+    expect(yield* titlesOf(send, ana, "?minValueCents=500000")).toEqual(["Large", "Medium"])
+    expect(yield* titlesOf(send, ana, "?maxValueCents=500000")).toEqual(["Medium", "Small"])
+    expect(yield* titlesOf(send, ana, "?closeFrom=2026-11-10&closeTo=2026-11-10")).toEqual([
+      "Medium",
+    ])
+    expect(yield* titlesOf(send, ana, "?closeFrom=2026-12-01")).toEqual(["Large"])
+    expect(yield* titlesOf(send, ana, "?closeTo=2026-11-30")).toEqual(["Medium"])
+  }).pipe(Effect.scoped),
+)
+
+it.effect("combines filters with and", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    const ana = yield* loginAs(send, seededEmails.ana, sellerPassword)
+    yield* seedFilterDeals(send, ana)
+    expect(
+      yield* titlesOf(
+        send,
+        ana,
+        "?statuses=NEGOTIATION,PROPOSAL_SENT&minValueCents=600000&closeTo=2026-12-31&search=large",
+      ),
+    ).toEqual(["Large"])
+    expect(yield* titlesOf(send, ana, "?statuses=NEW&minValueCents=600000")).toEqual([])
+  }).pipe(Effect.scoped),
+)
+
+it.effect("filters deals by days without interaction, counting comments", () =>
+  Effect.gen(function* () {
+    // Idle days compare against the API clock, while the seeded activity uses the database clock.
+    yield* TestClock.setTime(Date.now())
+    const { send, sql } = yield* makeTestApi
+    const ana = yield* loginAs(send, seededEmails.ana, sellerPassword)
+    const { medium } = yield* seedFilterDeals(send, ana)
+    expect(yield* titlesOf(send, ana, "?idleDays=5")).toEqual([])
+    yield* sql`UPDATE deal_events SET created_at = now() - interval '10 days' WHERE deal_id = ${medium}`
+    expect(yield* titlesOf(send, ana, "?idleDays=5")).toEqual(["Medium"])
+    expect(yield* titlesOf(send, ana, "?idleDays=11")).toEqual([])
+    yield* addComment(send, ana, medium, "Retomei o contato")
+    expect(yield* titlesOf(send, ana, "?idleDays=5")).toEqual([])
+    yield* sql`UPDATE deal_comments SET created_at = now() - interval '10 days' WHERE deal_id = ${medium}`
+    expect(yield* titlesOf(send, ana, "?idleDays=5")).toEqual(["Medium"])
+  }).pipe(Effect.scoped),
+)
+
+it.effect("counts idle days as Sao Paulo calendar days", () =>
+  Effect.gen(function* () {
+    yield* TestClock.setTime(Date.parse("2026-10-06T13:00:00Z"))
+    const { send, sql } = yield* makeTestApi
+    const ana = yield* loginAs(send, seededEmails.ana, sellerPassword)
+    const { medium } = yield* seedFilterDeals(send, ana)
+    const lastActivityAt = (timestamp: string) =>
+      sql`UPDATE deal_events SET created_at = ${timestamp}::timestamptz WHERE deal_id = ${medium}`
+    yield* lastActivityAt("2026-10-01T23:00:00-03:00")
+    expect(yield* titlesOf(send, ana, "?idleDays=5&statuses=NEGOTIATION")).toEqual(["Medium"])
+    yield* lastActivityAt("2026-10-02T00:30:00-03:00")
+    expect(yield* titlesOf(send, ana, "?idleDays=5&statuses=NEGOTIATION")).toEqual([])
+  }).pipe(Effect.scoped),
+)
+
+it.effect("filters deals by the day they were closed in the Sao Paulo time zone", () =>
+  Effect.gen(function* () {
+    const { send, sql } = yield* makeTestApi
+    const ana = yield* loginAs(send, seededEmails.ana, sellerPassword)
+    const { small, medium } = yield* seedFilterDeals(send, ana)
+    yield* closeDeal(send, ana, small, { result: "WON" })
+    yield* closeDeal(send, ana, medium, { result: "LOST", reason: "PRICE" })
+    yield* sql`UPDATE deals SET closed_at = '2026-03-10T12:00:00Z' WHERE id = ${small}`
+    yield* sql`UPDATE deals SET closed_at = '2026-03-11T01:00:00Z' WHERE id = ${medium}`
+    expect(yield* titlesOf(send, ana, "?closedFrom=2026-03-10&closedTo=2026-03-10")).toEqual([
+      "Medium",
+      "Small",
+    ])
+    expect(yield* titlesOf(send, ana, "?closedFrom=2026-03-11")).toEqual([])
+    expect(yield* titlesOf(send, ana, "?closedTo=2026-03-09")).toEqual([])
+    expect(yield* titlesOf(send, ana, "?closedFrom=2026-03-10&statuses=LOST")).toEqual(["Medium"])
+  }).pipe(Effect.scoped),
+)
+
+it.effect("keeps the seller scope when filters name another seller", () =>
+  Effect.gen(function* () {
+    const { send, sql } = yield* makeTestApi
+    const ids = yield* seededUserIds(sql)
+    const ana = yield* loginAs(send, seededEmails.ana, sellerPassword)
+    const bruno = yield* loginAs(send, seededEmails.bruno, sellerPassword)
+    yield* seedFilterDeals(send, ana)
+    expect(yield* titlesOf(send, bruno, `?sellerId=${ids.ana}&minValueCents=1`)).toEqual([])
+    expect(yield* titlesOf(send, bruno, "?statuses=NEW,NEGOTIATION,PROPOSAL_SENT")).toEqual([])
+    expect(yield* titlesOf(send, ana, `?sellerId=${ids.ana}&statuses=NEW`)).toEqual(["Small"])
+  }).pipe(Effect.scoped),
+)
+
+it.effect("rejects an unknown status, an inverted range and an impossible date", () =>
+  Effect.gen(function* () {
+    const { send } = yield* makeTestApi
+    const ana = yield* loginAs(send, seededEmails.ana, sellerPassword)
+    for (const query of [
+      "?statuses=FOO",
+      "?statuses=NEW,NEW",
+      "?statuses=",
+      "?minValueCents=10&maxValueCents=5",
+      "?closeFrom=2026-12-02&closeTo=2026-12-01",
+      "?closedFrom=2026-12-02&closedTo=2026-12-01",
+      "?closeFrom=2026-02-30",
+      "?idleDays=0",
+      "?idleDays=366",
+      "?minValueCents=-1",
+      "?maxValueCents=",
+      "?minValueCents=0x10",
+      "?minValueCents=1e3",
+      "?minValueCents=100000000000",
+    ]) {
+      expect((yield* listDeals(send, ana, query)).status).toBe(400)
+    }
   }).pipe(Effect.scoped),
 )
