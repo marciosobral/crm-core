@@ -68,7 +68,8 @@ export function MoveMenu({
       } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         event.preventDefault()
         const items = getItems()
-        const index = items.findIndex((item) => item === document.activeElement)
+        const active = document.activeElement
+        const index = active instanceof HTMLElement ? items.indexOf(active) : -1
         const step = event.key === "ArrowDown" ? 1 : -1
         items.at((index + step + items.length) % items.length)?.focus()
       }
