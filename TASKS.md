@@ -72,10 +72,10 @@ Decisions: comments live on deals only; the timeline mixes comments with system 
 - [x] Pick the feature: deal comment summary or next-step suggestion
 - [x] Effect AI with a provider layer; API key through `Config.Redacted`
 - [x] Contract and endpoint with typed errors (provider failure, missing data)
-- [ ] Web: trigger and display on the deal details
+- [x] Web: trigger and display on the deal details
 - [x] Tests with a mocked provider layer
 
-Open decisions: which feature, which provider and model, cost and rate limits.
+Decisions: next-step suggestion on open deals; provider-agnostic `LanguageModel` with OpenAI (`gpt-6-luna` by default) as the only provider; optional key (503 without it); on demand, 5 per user per minute; suggestions are not persisted.
 
 ## 7. Release readiness
 

@@ -1,4 +1,4 @@
-import type { Deal, Lead } from "@crm/contract"
+import { type Deal, isClosedStatus, type Lead } from "@crm/contract"
 import { StatusBadge } from "#src/components/ui/status-badge.tsx"
 import { formatDate, formatDealValue } from "#src/lib/format.ts"
 import { lostReasonLabels } from "#src/lib/labels.ts"
@@ -20,7 +20,7 @@ export function DealSummary({
   lastContact,
   onClose,
 }: DealSummaryProps) {
-  const isClosed = deal.status === "WON" || deal.status === "LOST"
+  const isClosed = isClosedStatus(deal.status)
 
   return (
     <div className="space-y-5">
