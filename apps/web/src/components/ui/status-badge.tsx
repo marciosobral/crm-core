@@ -1,6 +1,6 @@
-import type { DealStatus } from "@crm/contract"
+import { type DealStatus, dealStatusLabels } from "@crm/contract"
 import { cn } from "#src/lib/cn.ts"
-import { dealStatusDotClasses, dealStatusLabels, dealStatusTextClasses } from "#src/lib/labels.ts"
+import { dealStatusDotClasses, dealStatusTextClasses } from "#src/lib/labels.ts"
 
 export function StatusBadge({ status }: { status: DealStatus }) {
   return (

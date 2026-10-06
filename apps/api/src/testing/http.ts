@@ -1,32 +1,38 @@
 import { NodeHttpServer } from "@effect/platform-node"
 import { Context, Effect, Layer } from "effect"
+import type { LanguageModel } from "effect/unstable/ai"
 import { HttpRouter } from "effect/unstable/http"
 import { SqlClient } from "effect/unstable/sql"
+import { UnconfiguredLanguageModel } from "#src/assistant/provider.ts"
 import { ApiRoutes } from "#src/platform/server.ts"
 import { TestDatabase } from "./database.ts"
 
 export type Send = (request: Request) => Effect.Effect<Response>
 
 // Raw web requests instead of HttpApiTest: the typed client cannot read or send cookies.
-export const makeTestApi = Effect.gen(function* () {
-  const database = yield* Layer.build(TestDatabase)
-  const { handler } = yield* Effect.acquireRelease(
-    Effect.sync(() =>
-      HttpRouter.toWebHandler(
-        ApiRoutes.pipe(
-          Layer.provide(Layer.succeedContext(database)),
-          Layer.provide(NodeHttpServer.layerHttpServices),
+export const makeTestApiWith = (languageModel: Layer.Layer<LanguageModel.LanguageModel>) =>
+  Effect.gen(function* () {
+    const database = yield* Layer.build(TestDatabase)
+    const { handler } = yield* Effect.acquireRelease(
+      Effect.sync(() =>
+        HttpRouter.toWebHandler(
+          ApiRoutes.pipe(
+            Layer.provide(Layer.succeedContext(database)),
+            Layer.provide(languageModel),
+            Layer.provide(NodeHttpServer.layerHttpServices),
+          ),
+          { disableLogger: true },
         ),
-        { disableLogger: true },
       ),
-    ),
-    ({ dispose }) => Effect.promise(dispose),
-  )
-  return {
-    send: (request: Request) => Effect.promise(() => handler(request)),
-    sql: Context.get(database, SqlClient.SqlClient),
-  }
-})
+      ({ dispose }) => Effect.promise(dispose),
+    )
+    return {
+      send: (request: Request) => Effect.promise(() => handler(request)),
+      sql: Context.get(database, SqlClient.SqlClient),
+    }
+  })
+
+export const makeTestApi = makeTestApiWith(UnconfiguredLanguageModel)
 
 export const jsonOf = (response: Response) => Effect.promise(() => response.json())
 

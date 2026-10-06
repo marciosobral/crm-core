@@ -10,6 +10,9 @@ import {
   HttpServerResponse,
 } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
+import { RateLimiter } from "effect/unstable/persistence"
+import { AssistantProviderLive } from "#src/assistant/provider.ts"
+import { AiUsageRepositoryLive } from "#src/assistant/repository.ts"
 import { AuthLive } from "#src/auth/handlers.ts"
 import { LoginAttemptsLive } from "#src/auth/login-attempts.ts"
 import { AuthorizationLive } from "#src/auth/middleware.ts"
@@ -96,14 +99,19 @@ export const ApiRoutes = HttpApiBuilder.layer(CrmApi).pipe(
   ]),
   Layer.provide(AuthorizationLive),
   Layer.provide([
+    AiUsageRepositoryLive,
     AuthRepositoryLive,
     LeadsRepositoryLive,
     DealsRepositoryLive,
     SellersRepositoryLive,
+    RateLimiter.layer.pipe(Layer.provide(RateLimiter.layerStoreMemory)),
   ]),
 )
 
-export const ApiLive = ApiRoutes.pipe(Layer.provide(DatabaseLive))
+export const ApiLive = ApiRoutes.pipe(
+  Layer.provide(DatabaseLive),
+  Layer.provide(AssistantProviderLive),
+)
 
 export const ServerLive = Layer.unwrap(
   Effect.gen(function* () {

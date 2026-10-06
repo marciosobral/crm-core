@@ -1,4 +1,4 @@
-import { hasPermission } from "@crm/contract"
+import { hasPermission, isClosedStatus } from "@crm/contract"
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { Schema } from "effect"
@@ -7,6 +7,7 @@ import { useState } from "react"
 import { ActivityTimeline } from "#src/components/deals/activity-timeline.tsx"
 import { CloseDealDialog } from "#src/components/deals/close-deal-dialog.tsx"
 import { DealSummary, SummaryRow } from "#src/components/deals/deal-summary.tsx"
+import { NextStep } from "#src/components/deals/next-step.tsx"
 import { TopBar } from "#src/components/layout/top-bar.tsx"
 import { variantClasses } from "#src/components/ui/button.tsx"
 import { meQueryOptions } from "#src/lib/auth.ts"
@@ -69,6 +70,9 @@ function DealPage() {
                   onClose={setCloseMode}
                 />
               </section>
+              {hasPermission(user, "deal.suggest") && !isClosedStatus(details.deal.status) && (
+                <NextStep key={dealId} dealId={dealId} variant="page" />
+              )}
               <section className="space-y-4 rounded-xl border border-line bg-surface p-5">
                 <h2 className="font-heading text-base font-bold text-white">
                   Dossiê do Cliente & Contatos

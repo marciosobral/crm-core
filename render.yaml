@@ -17,3 +17,5 @@ services:
         sync: false
       - key: SEED_SELLER_PASSWORD
         sync: false
+      - key: AI_API_KEY
+        sync: false

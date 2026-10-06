@@ -1,4 +1,4 @@
-import { hasPermission } from "@crm/contract"
+import { hasPermission, isClosedStatus } from "@crm/contract"
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { ArrowRight, CircleX } from "lucide-react"
@@ -13,6 +13,7 @@ import {
 } from "#src/lib/deals.ts"
 import { CloseDealDialog } from "./close-deal-dialog.tsx"
 import { DealSummary } from "./deal-summary.tsx"
+import { NextStep } from "./next-step.tsx"
 import { PanelComments } from "./panel-comments.tsx"
 
 type DealPanelProps = {
@@ -69,6 +70,9 @@ export function DealPanel({
                 lastContact={lastContactLabel(activitiesQuery.data, activitiesQuery.isError)}
                 onClose={setCloseMode}
               />
+              {hasPermission(user, "deal.suggest") && !isClosedStatus(details.deal.status) && (
+                <NextStep key={dealId} dealId={dealId} variant="panel" />
+              )}
               <PanelComments
                 dealId={dealId}
                 activities={activitiesQuery.data}
