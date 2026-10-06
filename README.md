@@ -62,6 +62,7 @@ pnpm dev
 | `pnpm typecheck` | `tsc` across all packages |
 | `pnpm test` | tests (Vitest) |
 | `pnpm lint` / `pnpm lint:fix` | Biome |
+| `pnpm --filter @crm/api eval:assistant` | runs the assistant chat questions (data tools, how-to, unsupported, refusals) through the real model against a seeded in-memory database and prints a pass/fail table; needs `AI_API_KEY`, not part of CI |
 
 ### Environment variables
 
@@ -80,7 +81,10 @@ pnpm dev
 | api | `AI_API_KEY` | provider API key; without it the assistant answers 503 |
 | api | `AI_MODEL` | model id (default `gpt-6-luna`) |
 | api | `AI_REASONING_EFFORT` | reasoning effort sent to the model: `none`, `minimal`, `low`, `medium`, `high`, `xhigh` or `max` (default `low`) |
+| api | `AI_MAX_OUTPUT_TOKENS` | cap on tokens generated per model call, reasoning tokens included; integer of at least 1 (default `2000`) |
 | web | `VITE_API_URL` | API base URL |
+
+All dates and "today" use the business time zone `America/Sao_Paulo` for every user; instants are stored as UTC.
 
 ## Demo accounts
 

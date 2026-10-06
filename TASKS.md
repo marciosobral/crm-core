@@ -78,28 +78,19 @@ Decisions: comments live on deals only; the timeline mixes comments with system 
 
 Decisions: next-step suggestion on open deals; provider-agnostic `LanguageModel` with OpenAI (`gpt-6-luna` by default) as the only provider; optional key (503 without it); on demand, 5 per user per minute; reasoning effort `low` by default (`AI_REASONING_EFFORT`); suggestions are not persisted; every model call is recorded in `ai_usage`, queried with SQL (no screen).
 
-## 7. AI pipeline search
+## 7. AI assistant
 
-- [ ] Typed search filters for deals (status, value range, seller, days without interaction, expected close date, text), applied within the user's scope
-- [ ] Endpoint that turns a question in Portuguese into those filters with the language model; never generates SQL
-- [ ] Web: question field on the board; the understood filters show as editable chips
-- [ ] Usage recorded in `ai_usage` as a new feature; rate limited per user
-- [ ] Tests with a mocked provider layer
+- [x] Global chat on every logged-in screen: floating button, floating card with history list and new conversation
+- [x] Tools over deals, leads and sales, always within the user's scope
+- [x] Links to the filtered board and lead list, and to the screens that do what the user asks
+- [x] Conversation history with a rolling summary and a window of recent messages
+- [x] Suggested questions based on the data the user can see
+- [x] Capability awareness: answers, explains how to do it in the CRM, or says the feature does not exist
+- [x] Eval of tool, how-to and unsupported questions against the real model (not in CI)
 
-Open decisions: the filter set, how ambiguous or unsupported questions are answered, where the field lives on mobile.
+Decisions: tools instead of RAG, so numbers are exact and permission scoped; up to 4 model steps per message; no streaming; links built by the server and rendered as buttons; the model never writes URLs; conversations persisted (last 12 messages plus summary, compaction from 16 unsummarized); `assistant.chat` permission for both roles; 10 messages per user per minute; every model call recorded in `ai_usage`; the next-step suggestion stays on the deal panel.
 
-## 8. AI deal copilot
-
-- [ ] Spike: streaming and tool approval in the Effect AI and HttpApi release in use
-- [ ] Toolkit over existing data: deal timeline, lead, pipeline search (step 7)
-- [ ] Write tools (comment, move status, follow-up draft) return proposals the user approves; the model never writes on its own
-- [ ] Chat on the deal details with streamed answers
-- [ ] Every model step recorded in `ai_usage`; limits per conversation turn
-- [ ] Tests with a mocked provider layer, including permission scope for every tool
-
-Open decisions: which tools ship first, conversation persistence, how the next-step suggestion fits in.
-
-## 9. Release readiness
+## 8. Release readiness
 
 - [ ] Web tests for the main flows (login, create lead)
 - [ ] README: concise "Technical decisions" section

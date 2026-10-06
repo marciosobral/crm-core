@@ -1,16 +1,29 @@
 import {
+  CalendarDate,
   Deal,
   type DealActivity,
   type DealComment,
+  DealFilters,
   DealLead,
   DealStatus,
   LostReason,
   OpenDealStatus,
   Seller,
 } from "@crm/contract"
-import { Context, Effect, Layer, Option, Schema } from "effect"
-import { SqlClient, type SqlError, SqlSchema } from "effect/unstable/sql"
+import { Context, DateTime, Effect, Layer, Option, Schema } from "effect"
+import { SqlClient, type SqlError, SqlSchema, type Statement } from "effect/unstable/sql"
 import { dieOnMissingRow, dieOnSchemaError, escapeLikePattern } from "#src/platform/sql.ts"
+
+const DealRequest = Schema.Struct({ filters: DealFilters, today: CalendarDate })
+
+export const DealSort = Schema.Literals(["NEWEST", "VALUE_DESC", "VALUE_ASC"])
+export type DealSort = typeof DealSort.Type
+
+const DealSampleRequest = Schema.Struct({
+  ...DealRequest.fields,
+  sort: DealSort,
+  limit: Schema.Number,
+})
 
 const DealRow = Schema.Struct({
   id: Schema.String,
@@ -45,11 +58,6 @@ const toDeal = (row: typeof DealRow.Type) =>
     lead: new DealLead({ id: row.leadId, name: row.leadName, company: row.leadCompany }),
     seller: new Seller({ id: row.sellerId, name: row.sellerName }),
   })
-
-const DealScope = Schema.Struct({
-  sellerId: Schema.optionalKey(Schema.String),
-  search: Schema.optionalKey(Schema.String),
-})
 
 const NewDeal = Schema.Struct({
   title: Schema.String,
@@ -154,8 +162,54 @@ export class DealsRepository extends Context.Service<
   DealsRepository,
   {
     readonly list: (
-      scope: typeof DealScope.Type,
+      filters: DealFilters,
+      today: string,
     ) => Effect.Effect<ReadonlyArray<Deal>, SqlError.SqlError>
+    readonly exists: (
+      filters: DealFilters,
+      today: string,
+    ) => Effect.Effect<boolean, SqlError.SqlError>
+    // The median is an existing deal value, so it is never above the largest matching deal.
+    readonly medianValueCents: (
+      filters: DealFilters,
+      today: string,
+    ) => Effect.Effect<Option.Option<number>, SqlError.SqlError>
+    readonly summarize: (
+      filters: DealFilters,
+      today: string,
+      sample: { readonly sort: DealSort; readonly limit: number },
+    ) => Effect.Effect<
+      {
+        readonly count: number
+        readonly totalValueCents: number
+        readonly sample: ReadonlyArray<Deal>
+      },
+      SqlError.SqlError
+    >
+    readonly salesSummary: (
+      filters: DealFilters,
+      today: string,
+    ) => Effect.Effect<
+      {
+        readonly wonCount: number
+        readonly wonValueCents: number
+        readonly lostCount: number
+      },
+      SqlError.SqlError
+    >
+    // Sellers are the rows, so a sellerId filter is not accepted.
+    readonly rankSellers: (
+      filters: Omit<DealFilters, "sellerId"> & { readonly sellerId?: never },
+      today: string,
+    ) => Effect.Effect<
+      ReadonlyArray<{
+        readonly sellerId: string
+        readonly sellerName: string
+        readonly count: number
+        readonly valueCents: number
+      }>,
+      SqlError.SqlError
+    >
     readonly findById: (
       id: string,
       scope: { readonly sellerId?: string },
@@ -174,8 +228,10 @@ export class DealsRepository extends Context.Service<
       closing: typeof DealClosing.Type,
       actorId: string,
     ) => Effect.Effect<Option.Option<Deal>, SqlError.SqlError>
+    // The newest `limit` activities, newest first; all of them when `limit` is omitted.
     readonly listActivities: (
       dealId: string,
+      limit?: number,
     ) => Effect.Effect<ReadonlyArray<DealActivity>, SqlError.SqlError>
     readonly addComment: (
       comment: typeof NewDealComment.Type,
@@ -187,10 +243,15 @@ export const DealsRepositoryLive = Layer.effect(
   DealsRepository,
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
+    const zone = DateTime.zoneToString(yield* DateTime.CurrentTimeZone)
 
     // int8 arrives as a string from pg, and a date column would become a local-midnight JS Date,
     // so both are converted to text in SQL and decoded explicitly.
-    const selectDeals = (condition: ReturnType<typeof sql.and>) => sql`
+    const selectDeals = (
+      condition: ReturnType<typeof sql.and>,
+      order = sql`d.created_at DESC, d.id`,
+      limit = sql``,
+    ) => sql`
       SELECT d.id, d.title, d.value_cents::text AS "valueCents", d.status,
              to_char(d.expected_close_date, 'YYYY-MM-DD') AS "expectedCloseDate",
              d.description, d.created_at AS "createdAt",
@@ -201,23 +262,143 @@ export const DealsRepositoryLive = Layer.effect(
       JOIN leads l ON l.id = d.lead_id
       JOIN users u ON u.id = d.seller_id
       WHERE ${condition}
-      ORDER BY d.created_at DESC, d.id
+      ORDER BY ${order}
+      ${limit}
     `
 
+    const orderFor = (sort: DealSort) => {
+      switch (sort) {
+        case "NEWEST":
+          return sql`d.created_at DESC, d.id`
+        case "VALUE_DESC":
+          return sql`d.value_cents DESC, d.created_at DESC, d.id`
+        case "VALUE_ASC":
+          return sql`d.value_cents ASC, d.created_at DESC, d.id`
+      }
+    }
+
+    const dealConditions = (request: typeof DealRequest.Type) => {
+      const {
+        filters: {
+          sellerId,
+          search,
+          statuses,
+          minValueCents,
+          maxValueCents,
+          idleDays,
+          closeFrom,
+          closeTo,
+          closedFrom,
+          closedTo,
+        },
+        today,
+      } = request
+      const conditions: Array<Statement.Fragment> = [sql`TRUE`]
+      if (sellerId !== undefined) conditions.push(sql`d.seller_id = ${sellerId}`)
+      if (statuses !== undefined) conditions.push(sql.in("d.status", statuses))
+      if (minValueCents !== undefined) conditions.push(sql`d.value_cents >= ${minValueCents}`)
+      if (maxValueCents !== undefined) conditions.push(sql`d.value_cents <= ${maxValueCents}`)
+      // Idle time counts from the newest event or comment. Every deal has a CREATED event, so the
+      // GREATEST below is never NULL.
+      if (idleDays !== undefined)
+        conditions.push(sql`
+            (GREATEST(
+              (SELECT max(e.created_at) FROM deal_events e WHERE e.deal_id = d.id),
+              (SELECT max(c.created_at) FROM deal_comments c WHERE c.deal_id = d.id)
+            ) AT TIME ZONE ${zone})::date <= ${today}::date - ${idleDays}::int`)
+      if (closeFrom !== undefined) conditions.push(sql`d.expected_close_date >= ${closeFrom}::date`)
+      if (closeTo !== undefined) conditions.push(sql`d.expected_close_date <= ${closeTo}::date`)
+      if (closedFrom !== undefined)
+        conditions.push(sql`(d.closed_at AT TIME ZONE ${zone})::date >= ${closedFrom}::date`)
+      if (closedTo !== undefined)
+        conditions.push(sql`(d.closed_at AT TIME ZONE ${zone})::date <= ${closedTo}::date`)
+      if (search !== undefined) {
+        const pattern = `%${escapeLikePattern(search)}%`
+        conditions.push(
+          sql`(d.title ILIKE ${pattern} OR l.name ILIKE ${pattern} OR l.company ILIKE ${pattern})`,
+        )
+      }
+      return sql.and(conditions)
+    }
+
     const list = SqlSchema.findAll({
-      Request: DealScope,
+      Request: DealRequest,
       Result: DealRow,
-      execute: ({ sellerId, search }) => {
-        const conditions = [sql`TRUE`]
-        if (sellerId !== undefined) conditions.push(sql`d.seller_id = ${sellerId}`)
-        if (search !== undefined) {
-          const pattern = `%${escapeLikePattern(search)}%`
-          conditions.push(
-            sql`(d.title ILIKE ${pattern} OR l.name ILIKE ${pattern} OR l.company ILIKE ${pattern})`,
-          )
-        }
-        return selectDeals(sql.and(conditions))
-      },
+      execute: (request) => selectDeals(dealConditions(request)),
+    })
+
+    const sample = SqlSchema.findAll({
+      Request: DealSampleRequest,
+      Result: DealRow,
+      execute: ({ sort, limit, ...request }) =>
+        selectDeals(dealConditions(request), orderFor(sort), sql`LIMIT ${limit}`),
+    })
+
+    const totals = SqlSchema.findOne({
+      Request: DealRequest,
+      Result: Schema.Struct({ count: Schema.Number, totalValueCents: Schema.NumberFromString }),
+      execute: (request) => sql`
+        SELECT count(*)::int AS count, COALESCE(sum(d.value_cents), 0)::text AS "totalValueCents"
+        FROM deals d JOIN leads l ON l.id = d.lead_id
+        WHERE ${dealConditions(request)}
+      `,
+    })
+
+    const medianValueCents = SqlSchema.findOne({
+      Request: DealRequest,
+      Result: Schema.Struct({ valueCents: Schema.NullOr(Schema.NumberFromString) }),
+      execute: (request) => sql`
+        SELECT percentile_disc(0.5) WITHIN GROUP (ORDER BY d.value_cents)::text AS "valueCents"
+        FROM deals d JOIN leads l ON l.id = d.lead_id
+        WHERE ${dealConditions(request)}
+      `,
+    })
+
+    const salesSummary = SqlSchema.findOne({
+      Request: DealRequest,
+      Result: Schema.Struct({
+        wonCount: Schema.Number,
+        wonValueCents: Schema.NumberFromString,
+        lostCount: Schema.Number,
+      }),
+      execute: (request) => sql`
+        SELECT count(*) FILTER (WHERE d.status = 'WON')::int AS "wonCount",
+               COALESCE(sum(d.value_cents) FILTER (WHERE d.status = 'WON'), 0)::text AS "wonValueCents",
+               count(*) FILTER (WHERE d.status = 'LOST')::int AS "lostCount"
+        FROM deals d JOIN leads l ON l.id = d.lead_id
+        WHERE ${dealConditions(request)}
+      `,
+    })
+
+    // Every seller appears, with zero when none of their deals match: the conditions sit in the
+    // join, not in WHERE, so sellers without matching deals are kept.
+    const rankSellers = SqlSchema.findAll({
+      Request: DealRequest,
+      Result: Schema.Struct({
+        sellerId: Schema.String,
+        sellerName: Schema.String,
+        count: Schema.Number,
+        valueCents: Schema.NumberFromString,
+      }),
+      execute: (request) => sql`
+        SELECT u.id AS "sellerId", u.name AS "sellerName", count(d.id)::int AS count,
+               COALESCE(sum(d.value_cents), 0)::text AS "valueCents"
+        FROM users u
+        LEFT JOIN deals d ON d.seller_id = u.id AND ${dealConditions(request)}
+        WHERE u.role = 'SELLER'
+        GROUP BY u.id, u.name
+        ORDER BY u.name
+      `,
+    })
+
+    const exists = SqlSchema.findOne({
+      Request: DealRequest,
+      Result: Schema.Struct({ found: Schema.Boolean }),
+      execute: (request) => sql`
+        SELECT EXISTS (
+          SELECT 1 FROM deals d JOIN leads l ON l.id = d.lead_id WHERE ${dealConditions(request)}
+        ) AS found
+      `,
     })
 
     const findById = SqlSchema.findOneOption({
@@ -308,9 +489,9 @@ export const DealsRepositoryLive = Layer.effect(
     })
 
     const listActivities = SqlSchema.findAll({
-      Request: Schema.String,
+      Request: Schema.Struct({ dealId: Schema.String, limit: Schema.NullOr(Schema.Number) }),
       Result: ActivityRow,
-      execute: (dealId) => sql`
+      execute: ({ dealId, limit }) => sql`
         SELECT c.id, 'COMMENT' AS kind, c.body, NULL::text AS status, NULL::text AS "lostReason",
                NULL::uuid AS "sellerId", NULL::text AS "sellerName",
                a.id AS "authorId", a.name AS "authorName", c.created_at AS "createdAt", c.seq
@@ -325,6 +506,7 @@ export const DealsRepositoryLive = Layer.effect(
         LEFT JOIN users s ON s.id = e.seller_id
         WHERE e.deal_id = ${dealId}
         ORDER BY "createdAt" DESC, seq DESC
+        ${limit === null ? sql`` : sql`LIMIT ${limit}`}
       `,
     })
 
@@ -338,11 +520,38 @@ export const DealsRepositoryLive = Layer.effect(
       )
 
     return {
-      list: (scope) =>
-        list(scope).pipe(
+      list: (filters, today) =>
+        list({ filters, today }).pipe(
           dieOnSchemaError,
           Effect.map((rows) => rows.map(toDeal)),
         ),
+      exists: (filters, today) =>
+        exists({ filters, today }).pipe(
+          dieOnMissingRow,
+          dieOnSchemaError,
+          Effect.map((row) => row.found),
+        ),
+      medianValueCents: (filters, today) =>
+        medianValueCents({ filters, today }).pipe(
+          dieOnMissingRow,
+          dieOnSchemaError,
+          Effect.map((row) => Option.fromNullishOr(row.valueCents)),
+        ),
+      summarize: (filters, today, { sort, limit }) =>
+        Effect.all({
+          totals: totals({ filters, today }).pipe(dieOnMissingRow),
+          sample: sample({ filters, today, sort, limit }),
+        }).pipe(
+          dieOnSchemaError,
+          Effect.map(({ totals: { count, totalValueCents }, sample: rows }) => ({
+            count,
+            totalValueCents,
+            sample: rows.map(toDeal),
+          })),
+        ),
+      salesSummary: (filters, today) =>
+        salesSummary({ filters, today }).pipe(dieOnMissingRow, dieOnSchemaError),
+      rankSellers: (filters, today) => rankSellers({ filters, today }).pipe(dieOnSchemaError),
       findById: (id, scope) =>
         findById({ id, ...scope }).pipe(dieOnSchemaError, Effect.map(Option.map(toDeal))),
       findLeadSellerId: (leadId) =>
@@ -399,8 +608,8 @@ export const DealsRepositoryLive = Layer.effect(
           )
           return Option.some(yield* readBack(id))
         }).pipe(sql.withTransaction, dieOnSchemaError),
-      listActivities: (dealId) =>
-        listActivities(dealId).pipe(
+      listActivities: (dealId, limit) =>
+        listActivities({ dealId, limit: limit ?? null }).pipe(
           dieOnSchemaError,
           Effect.map((rows) => rows.map(toActivity)),
         ),

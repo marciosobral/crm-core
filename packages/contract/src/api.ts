@@ -1,4 +1,5 @@
 import { HttpApi } from "effect/unstable/httpapi"
+import { AssistantGroup } from "./assistant.ts"
 import { AuthGroup } from "./auth.ts"
 import { DealsGroup } from "./deals.ts"
 import { HealthGroup } from "./health.ts"
@@ -10,4 +11,5 @@ export class CrmApi extends HttpApi.make("crm")
   .add(AuthGroup)
   .add(LeadsGroup)
   .add(DealsGroup)
-  .add(SellersGroup) {}
+  .add(SellersGroup)
+  .add(AssistantGroup) {}

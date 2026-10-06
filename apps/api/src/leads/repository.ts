@@ -68,6 +68,24 @@ export class LeadsRepository extends Context.Service<
     readonly list: (
       scope: typeof LeadScope.Type,
     ) => Effect.Effect<ReadonlyArray<Lead>, SqlError.SqlError>
+    readonly summarize: (
+      scope: typeof LeadScope.Type,
+      limit: number,
+    ) => Effect.Effect<
+      { readonly count: number; readonly sample: ReadonlyArray<Lead> },
+      SqlError.SqlError
+    >
+    readonly countBySeller: () => Effect.Effect<
+      ReadonlyArray<{
+        readonly sellerId: string
+        readonly sellerName: string
+        readonly count: number
+      }>,
+      SqlError.SqlError
+    >
+    readonly exists: (scope: {
+      readonly sellerId?: string
+    }) => Effect.Effect<boolean, SqlError.SqlError>
     readonly findById: (
       id: string,
       activityScope?: typeof ActivityScope.Type,
@@ -82,18 +100,7 @@ export const LeadsRepositoryLive = Layer.effect(
     const sql = yield* SqlClient.SqlClient
 
     // A lead has no stored status: it shows its most advanced open deal, else WON if any deal was won, else LOST, and NEW when it has no deals.
-    const selectLeads = (
-      condition: ReturnType<typeof sql.and>,
-      activitySellerId: string | undefined,
-    ) => {
-      const activityDeals =
-        activitySellerId === undefined ? sql`TRUE` : sql`d.seller_id = ${activitySellerId}`
-      return sql`
-      SELECT l.id, l.name, l.company, l.email, l.phone, l.job_title AS "jobTitle", l.source, l.notes,
-             l.created_at AS "createdAt", u.id AS "sellerId", u.name AS "sellerName", ds.status,
-             la.created_at AS "lastActivityAt", la.author_name AS "lastActivityAuthorName"
-      FROM leads l
-      JOIN users u ON u.id = l.seller_id
+    const dealStatusLateral = sql`
       LEFT JOIN LATERAL (
         SELECT CASE
           WHEN count(*) = 0 THEN 'NEW'
@@ -107,6 +114,22 @@ export const LeadsRepositoryLive = Layer.effect(
         FROM deals d
         WHERE d.lead_id = l.id
       ) ds ON TRUE
+    `
+
+    const selectLeads = (
+      condition: ReturnType<typeof sql.and>,
+      activitySellerId: string | undefined,
+      limit = sql``,
+    ) => {
+      const activityDeals =
+        activitySellerId === undefined ? sql`TRUE` : sql`d.seller_id = ${activitySellerId}`
+      return sql`
+      SELECT l.id, l.name, l.company, l.email, l.phone, l.job_title AS "jobTitle", l.source, l.notes,
+             l.created_at AS "createdAt", u.id AS "sellerId", u.name AS "sellerName", ds.status,
+             la.created_at AS "lastActivityAt", la.author_name AS "lastActivityAuthorName"
+      FROM leads l
+      JOIN users u ON u.id = l.seller_id
+      ${dealStatusLateral}
       LEFT JOIN LATERAL (
         SELECT activity.created_at, u2.name AS author_name
         FROM (
@@ -124,24 +147,73 @@ export const LeadsRepositoryLive = Layer.effect(
       ) la ON TRUE
       WHERE ${condition}
       ORDER BY l.created_at DESC, l.id
+      ${limit}
     `
+    }
+
+    const leadConditions = ({ sellerId, search, status }: typeof LeadScope.Type) => {
+      const conditions = [sql`TRUE`]
+      if (sellerId !== undefined) conditions.push(sql`l.seller_id = ${sellerId}`)
+      if (search !== undefined) {
+        const pattern = `%${escapeLikePattern(search)}%`
+        conditions.push(
+          sql`(l.name ILIKE ${pattern} OR l.company ILIKE ${pattern} OR l.email ILIKE ${pattern})`,
+        )
+      }
+      if (status !== undefined) conditions.push(sql`ds.status = ${status}`)
+      return sql.and(conditions)
     }
 
     const list = SqlSchema.findAll({
       Request: LeadScope,
       Result: LeadRow,
-      execute: ({ sellerId, search, status, activitySellerId }) => {
-        const conditions = [sql`TRUE`]
-        if (sellerId !== undefined) conditions.push(sql`l.seller_id = ${sellerId}`)
-        if (search !== undefined) {
-          const pattern = `%${escapeLikePattern(search)}%`
-          conditions.push(
-            sql`(l.name ILIKE ${pattern} OR l.company ILIKE ${pattern} OR l.email ILIKE ${pattern})`,
-          )
-        }
-        if (status !== undefined) conditions.push(sql`ds.status = ${status}`)
-        return selectLeads(sql.and(conditions), activitySellerId)
-      },
+      execute: (scope) => selectLeads(leadConditions(scope), scope.activitySellerId),
+    })
+
+    const sample = SqlSchema.findAll({
+      Request: Schema.Struct({ ...LeadScope.fields, limit: Schema.Number }),
+      Result: LeadRow,
+      execute: ({ limit, ...scope }) =>
+        selectLeads(leadConditions(scope), scope.activitySellerId, sql`LIMIT ${limit}`),
+    })
+
+    // The deal-status lateral is joined only when filtering by status, so plain counts skip it.
+    const count = SqlSchema.findOne({
+      Request: LeadScope,
+      Result: Schema.Struct({ count: Schema.Number }),
+      execute: (scope) => sql`
+        SELECT count(*)::int AS count
+        FROM leads l
+        ${scope.status === undefined ? sql`` : dealStatusLateral}
+        WHERE ${leadConditions(scope)}
+      `,
+    })
+
+    const countBySeller = SqlSchema.findAll({
+      Request: Schema.Void,
+      Result: Schema.Struct({
+        sellerId: Schema.String,
+        sellerName: Schema.String,
+        count: Schema.Number,
+      }),
+      execute: () => sql`
+        SELECT u.id AS "sellerId", u.name AS "sellerName", count(l.id)::int AS count
+        FROM users u
+        LEFT JOIN leads l ON l.seller_id = u.id
+        WHERE u.role = 'SELLER'
+        GROUP BY u.id, u.name
+        ORDER BY u.name
+      `,
+    })
+
+    const exists = SqlSchema.findOne({
+      Request: Schema.Struct({ sellerId: Schema.optionalKey(Schema.String) }),
+      Result: Schema.Struct({ found: Schema.Boolean }),
+      execute: ({ sellerId }) => sql`
+        SELECT EXISTS (
+          SELECT 1 FROM leads l WHERE ${sellerId === undefined ? sql`TRUE` : sql`l.seller_id = ${sellerId}`}
+        ) AS found
+      `,
     })
 
     const findLeadRow = SqlSchema.findOneOption({
@@ -167,6 +239,21 @@ export const LeadsRepositoryLive = Layer.effect(
         list(scope).pipe(
           dieOnSchemaError,
           Effect.map((rows) => rows.map(toLead)),
+        ),
+      summarize: (scope, limit) =>
+        Effect.all({
+          matching: count(scope).pipe(dieOnMissingRow),
+          rows: sample({ ...scope, limit }),
+        }).pipe(
+          dieOnSchemaError,
+          Effect.map(({ matching, rows }) => ({ count: matching.count, sample: rows.map(toLead) })),
+        ),
+      countBySeller: () => countBySeller().pipe(dieOnSchemaError),
+      exists: (scope) =>
+        exists(scope).pipe(
+          dieOnMissingRow,
+          dieOnSchemaError,
+          Effect.map((row) => row.found),
         ),
       findById: (id, activityScope = {}) =>
         findLeadRow({ id, ...activityScope }).pipe(
