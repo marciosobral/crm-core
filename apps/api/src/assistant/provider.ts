@@ -22,20 +22,26 @@ export const UnconfiguredLanguageModel = Layer.effect(
 
 export const AssistantProviderLive = Layer.unwrap(
   Effect.gen(function* () {
-    const { provider, apiKey, model, reasoningEffort } = yield* AssistantConfig
+    const { provider, apiKey, model, reasoningEffort, maxOutputTokens } = yield* AssistantConfig
     if (Option.isNone(apiKey)) {
       yield* Effect.logWarning("AI_API_KEY is not set; the assistant is disabled")
       return UnconfiguredLanguageModel
     }
     switch (provider) {
-      case "openai":
-        return OpenAiLanguageModel.layer({
-          model,
-          config: { reasoning: { effort: reasoningEffort } },
-        }).pipe(
+      case "openai": {
+        // The provider spreads this config into the Responses API request, but its type does not
+        // list parallel_tool_calls; a variable (not a fresh literal) is not checked for extra
+        // keys. One tool call per step keeps an answer from being written before the data exists.
+        const config = {
+          reasoning: { effort: reasoningEffort },
+          max_output_tokens: maxOutputTokens,
+          parallel_tool_calls: false,
+        }
+        return OpenAiLanguageModel.layer({ model, config }).pipe(
           Layer.provide(OpenAiClient.layer({ apiKey: apiKey.value })),
           Layer.provide(NodeHttpClient.layerUndici),
         )
+      }
     }
   }),
 )

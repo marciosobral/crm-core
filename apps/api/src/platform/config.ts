@@ -48,4 +48,8 @@ export const AssistantConfig = Config.all({
     Schema.Literals(["none", "minimal", "low", "medium", "high", "xhigh", "max"]),
     "AI_REASONING_EFFORT",
   ).pipe(Config.withDefault("low")),
+  maxOutputTokens: Config.schema(
+    Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
+    "AI_MAX_OUTPUT_TOKENS",
+  ).pipe(Config.withDefault(2000)),
 })
