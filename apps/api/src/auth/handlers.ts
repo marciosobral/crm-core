@@ -60,12 +60,14 @@ export const AuthLive = HttpApiBuilder.group(CrmApi, "auth", (handlers) =>
             Effect.gen(function* () {
               const clientReservation = yield* loginAttempts.reserveClientAttempt(clientIp)
               if (Result.isFailure(clientReservation)) return Result.fail(clientReservation.failure)
-              const reservation = yield* loginAttempts.reserveAttempt(payload.email)
+              const reservation = yield* loginAttempts.reserveAttempt(payload.email, clientIp)
               if (Result.isFailure(reservation)) return Result.fail(reservation.failure)
               const reservedAt = reservation.success
               return Result.succeed(
                 yield* restore(verifyLogin).pipe(
-                  Effect.onError(() => loginAttempts.releaseAttempt(payload.email, reservedAt)),
+                  Effect.onError(() =>
+                    loginAttempts.releaseAttempt(payload.email, clientIp, reservedAt),
+                  ),
                 ),
               )
             }),
@@ -76,7 +78,7 @@ export const AuthLive = HttpApiBuilder.group(CrmApi, "auth", (handlers) =>
             yield* Effect.logInfo("Login rejected")
             return yield* new InvalidCredentials()
           }
-          yield* loginAttempts.clear(payload.email)
+          yield* loginAttempts.clear(payload.email, clientIp)
           yield* repository.deleteExpiredSessions(row.id)
           const token = makeSessionToken()
           yield* repository.createSession({ id: hashSessionToken(token), userId: row.id })

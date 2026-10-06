@@ -5,7 +5,13 @@ interface Limit {
   readonly windowMillis: number
 }
 
-const failureLimit: Limit = { maxCount: 5, windowMillis: 15 * 60 * 1000 }
+const failureWindowMillis = 15 * 60 * 1000
+const emailAndClientFailureLimit: Limit = { maxCount: 5, windowMillis: failureWindowMillis }
+const emailFailureLimit: Limit = { maxCount: 20, windowMillis: failureWindowMillis }
+// A client that logged in successfully is trusted for this long, so strangers failing from other
+// clients cannot lock its owner out through the per-email limit.
+const knownClientMillis = 30 * 24 * 60 * 60 * 1000
+const maxKnownClientsPerEmail = 5
 const clientAttemptLimit: Limit = { maxCount: 20, windowMillis: 60 * 1000 }
 const defaultMaxTrackedKeys = 10_000
 // Two permits keep scrypt from filling the 4-thread libuv pool that pg DNS lookups also use.
@@ -32,9 +38,16 @@ export class LoginAttempts extends Context.Service<
     readonly reserveClientAttempt: (
       clientIp: string,
     ) => Effect.Effect<Result.Result<number, number>>
-    readonly reserveAttempt: (email: string) => Effect.Effect<Result.Result<number, number>>
-    readonly releaseAttempt: (email: string, reservedAt: number) => Effect.Effect<void>
-    readonly clear: (email: string) => Effect.Effect<void>
+    readonly reserveAttempt: (
+      email: string,
+      clientIp: string,
+    ) => Effect.Effect<Result.Result<number, number>>
+    readonly releaseAttempt: (
+      email: string,
+      clientIp: string,
+      reservedAt: number,
+    ) => Effect.Effect<void>
+    readonly clear: (email: string, clientIp: string) => Effect.Effect<void>
     readonly withVerificationSlot: <A, E, R>(
       clientIp: string,
       effect: Effect.Effect<A, E, R>,
@@ -76,10 +89,11 @@ const reserveInWindow = (
   now: number,
   maxTrackedKeys: number,
   limit: Limit,
+  isEnforced = true,
 ): Reservation => {
   const timestamps = timestampsInWindow(current.get(key), now, limit)
   const oldest = timestamps[0]
-  if (oldest !== undefined && timestamps.length >= limit.maxCount)
+  if (isEnforced && oldest !== undefined && timestamps.length >= limit.maxCount)
     return [
       Result.fail(Math.max(1, Math.ceil((oldest + limit.windowMillis - now) / 1000))),
       current,
@@ -108,13 +122,52 @@ interface InFlightVerifications {
   readonly byClient: ReadonlyMap<string, number>
 }
 
+const emailAndClientKey = (emailKey: string, clientIp: string) => `${clientIp}|${emailKey}`
+
+interface FailureCounts {
+  readonly byEmailAndClient: Timestamps
+  readonly byEmail: Timestamps
+  readonly knownClientLoginAt: ReadonlyMap<string, ReadonlyMap<string, number>>
+}
+
+// Re-inserting moves a key to the end, so the first keys are always the least recently seen. Each
+// email keeps only its latest clients and the global bound drops whole emails, so a flood of
+// logins to one account can never push out the known clients of another.
+const rememberKnownClient = (
+  current: FailureCounts["knownClientLoginAt"],
+  emailKey: string,
+  clientIp: string,
+  now: number,
+  maxTrackedKeys: number,
+) => {
+  const clients = new Map(current.get(emailKey))
+  clients.delete(clientIp)
+  clients.set(clientIp, now)
+  for (const oldestClient of clients.keys()) {
+    if (clients.size <= maxKnownClientsPerEmail) break
+    clients.delete(oldestClient)
+  }
+  const next = new Map(current)
+  next.delete(emailKey)
+  next.set(emailKey, clients)
+  for (const oldestEmail of next.keys()) {
+    if (next.size <= maxTrackedKeys) break
+    next.delete(oldestEmail)
+  }
+  return next
+}
+
 export const makeLoginAttempts = ({
   maxTrackedKeys = defaultMaxTrackedKeys,
 }: {
   readonly maxTrackedKeys?: number
 } = {}) =>
   Effect.gen(function* () {
-    const failuresByEmail = yield* Ref.make<Timestamps>(new Map())
+    const failures = yield* Ref.make<FailureCounts>({
+      byEmailAndClient: new Map(),
+      byEmail: new Map(),
+      knownClientLoginAt: new Map(),
+    })
     const attemptsByClient = yield* Ref.make<Timestamps>(new Map())
     const semaphore = yield* Semaphore.make(verificationPermits)
     const inFlight = yield* Ref.make<InFlightVerifications>({ total: 0, byClient: new Map() })
@@ -155,24 +208,86 @@ export const makeLoginAttempts = ({
           )
         }),
       // The attempt is counted up front, in the same atomic step as the limit check, so parallel
-      // guesses cannot all pass before any failure is recorded. Unknown emails are counted like
-      // known ones so a 429 never reveals whether an account exists.
-      reserveAttempt: (email) =>
+      // guesses cannot all pass before any failure is recorded. The hard lockout is per email and
+      // client, so a stranger cannot lock an account by failing from elsewhere; the looser per-email
+      // limit stops guessing spread across many clients but is not enforced against a client that
+      // already logged in to this account, whose attempts still count toward everyone else's limit.
+      // Both keys are reserved or neither is. Unknown emails are counted like known ones so a 429
+      // never reveals whether an account exists.
+      reserveAttempt: (email, clientIp) =>
         Effect.gen(function* () {
           const now = yield* Clock.currentTimeMillis
-          return yield* Ref.modify(failuresByEmail, (current) =>
-            reserveInWindow(current, normalizeEmail(email), now, maxTrackedKeys, failureLimit),
+          const emailKey = normalizeEmail(email)
+          const clientKey = emailAndClientKey(emailKey, clientIp)
+          return yield* Ref.modify(
+            failures,
+            (current): readonly [Result.Result<number, number>, FailureCounts] => {
+              const knownSince = current.knownClientLoginAt.get(emailKey)?.get(clientIp)
+              const isKnownClient = knownSince !== undefined && knownSince > now - knownClientMillis
+              const [byEmailAndClientResult, byEmailAndClient] = reserveInWindow(
+                current.byEmailAndClient,
+                clientKey,
+                now,
+                maxTrackedKeys,
+                emailAndClientFailureLimit,
+              )
+              const [byEmailResult, byEmail] = reserveInWindow(
+                current.byEmail,
+                emailKey,
+                now,
+                maxTrackedKeys,
+                emailFailureLimit,
+                !isKnownClient,
+              )
+              if (Result.isFailure(byEmailAndClientResult) || Result.isFailure(byEmailResult))
+                return [
+                  Result.fail(
+                    Math.max(
+                      Result.isFailure(byEmailAndClientResult) ? byEmailAndClientResult.failure : 0,
+                      Result.isFailure(byEmailResult) ? byEmailResult.failure : 0,
+                    ),
+                  ),
+                  current,
+                ]
+              return [Result.succeed(now), { ...current, byEmailAndClient, byEmail }]
+            },
           )
         }),
-      releaseAttempt: (email, reservedAt) =>
-        Ref.update(failuresByEmail, (current) =>
-          releaseFromWindow(current, normalizeEmail(email), reservedAt),
-        ),
-      clear: (email) =>
-        Ref.update(failuresByEmail, (current) => {
-          const next = new Map(current)
-          next.delete(normalizeEmail(email))
-          return next
+      releaseAttempt: (email, clientIp, reservedAt) =>
+        Ref.update(failures, (current) => {
+          const emailKey = normalizeEmail(email)
+          return {
+            ...current,
+            byEmailAndClient: releaseFromWindow(
+              current.byEmailAndClient,
+              emailAndClientKey(emailKey, clientIp),
+              reservedAt,
+            ),
+            byEmail: releaseFromWindow(current.byEmail, emailKey, reservedAt),
+          }
+        }),
+      clear: (email, clientIp) =>
+        Effect.gen(function* () {
+          const now = yield* Clock.currentTimeMillis
+          const emailKey = normalizeEmail(email)
+          const clientKey = emailAndClientKey(emailKey, clientIp)
+          yield* Ref.update(failures, (current) => {
+            const byEmailAndClient = new Map(current.byEmailAndClient)
+            byEmailAndClient.delete(clientKey)
+            const byEmail = new Map(current.byEmail)
+            byEmail.delete(emailKey)
+            return {
+              byEmailAndClient,
+              byEmail,
+              knownClientLoginAt: rememberKnownClient(
+                current.knownClientLoginAt,
+                emailKey,
+                clientIp,
+                now,
+                maxTrackedKeys,
+              ),
+            }
+          })
         }),
       withVerificationSlot: <A, E, R>(
         clientIp: string,
