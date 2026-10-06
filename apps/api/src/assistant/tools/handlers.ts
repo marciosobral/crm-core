@@ -386,8 +386,8 @@ export const makeToolHandlers = Effect.gen(function* () {
         )
         // A period that could not be applied would rank over all time without saying so.
         if (ignored.length > 0) return { sellers: [], ignored }
-        const { sellerId: _sellerId, ...withoutSeller } = filters
-        const rows = yield* deals.rankSellers(withoutSeller, today)
+        const { sellerId: _sellerId, search: _search, ...rankFilters } = filters
+        const rows = yield* deals.rankSellers(rankFilters, today)
         return {
           sellers: rank(
             rows.map(({ sellerId, sellerName, count, valueCents }) => ({
