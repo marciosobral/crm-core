@@ -16,6 +16,7 @@ import { BoardColumn, type MoveFocusRequest } from "#src/components/deals/board-
 import { boardColumns } from "#src/components/deals/board-columns.ts"
 import { CloseDealDialog } from "#src/components/deals/close-deal-dialog.tsx"
 import { DealPanel } from "#src/components/deals/deal-panel.tsx"
+import { type ChipFilterKey, FilterChips } from "#src/components/deals/filter-chips.tsx"
 import { FiltersBar } from "#src/components/layout/filters-bar.tsx"
 import { SellerFilter } from "#src/components/layout/seller-filter.tsx"
 import { TopBar } from "#src/components/layout/top-bar.tsx"
@@ -24,7 +25,12 @@ import { SearchInput } from "#src/components/ui/search-input.tsx"
 import { runApi } from "#src/lib/api-client.ts"
 import { meQueryOptions } from "#src/lib/auth.ts"
 import { cn } from "#src/lib/cn.ts"
-import { dealsQueryOptions, invalidateDealQueries } from "#src/lib/deals.ts"
+import {
+  dealsQueryOptions,
+  filtersFromSearch,
+  invalidateDealQueries,
+  searchFromFilters,
+} from "#src/lib/deals.ts"
 import { ensureSellersIfPermitted, isVisibleSellerId } from "#src/lib/leads.ts"
 import { isDesktop } from "#src/lib/media.ts"
 import { useUrlSearch } from "#src/lib/use-url-search.ts"
@@ -32,9 +38,11 @@ import { useUrlSearch } from "#src/lib/use-url-search.ts"
 export const Route = createFileRoute("/_authenticated/deals/")({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { search?: string; sellerId?: string; dealId?: string; focus?: "comment" } => ({
+  ): ReturnType<typeof searchFromFilters> & { dealId?: string; focus?: "comment" } => ({
+    // The URL keeps the encoded string form of the filters; components decode it again with filtersFromSearch.
+    ...searchFromFilters(filtersFromSearch(search)),
+    // Kept raw: trimming here would rewrite the URL under the search box while the user is still typing.
     ...(typeof search.search === "string" ? { search: search.search } : {}),
-    ...(typeof search.sellerId === "string" ? { sellerId: search.sellerId } : {}),
     ...(typeof search.dealId === "string" ? { dealId: search.dealId } : {}),
     ...(search.focus === "comment" ? { focus: "comment" as const } : {}),
   }),
@@ -62,7 +70,8 @@ const dealCountLabel = (count: number) => {
 
 function DealBoard() {
   const search = Route.useSearch()
-  const { dealId: selectedDealId, focus, ...filters } = search
+  const { dealId: selectedDealId, focus, ...encodedFilters } = search
+  const filters = filtersFromSearch(encodedFilters)
   const navigate = Route.useNavigate()
   const { data: user } = useSuspenseQuery(meQueryOptions)
   const dealsQuery = useQuery({ ...dealsQueryOptions(filters), placeholderData: keepPreviousData })
@@ -151,6 +160,17 @@ function DealBoard() {
     [],
   )
 
+  const removeFilters = (keys: ReadonlyArray<ChipFilterKey>) =>
+    void navigate({
+      search: (previous) => {
+        const remaining = Object.entries(previous).filter(
+          ([key]) => !keys.some((removed) => removed === key),
+        )
+        return Object.fromEntries(remaining)
+      },
+      replace: true,
+    })
+
   return (
     <div className="relative flex h-dvh min-w-0 flex-col">
       <TopBar title="Negócios">
@@ -184,6 +204,7 @@ function DealBoard() {
             onChange={onSearchTextChange}
           />
         }
+        chips={<FilterChips filters={filters} onRemove={removeFilters} />}
       >
         {canSeeAll && (
           <SellerFilter

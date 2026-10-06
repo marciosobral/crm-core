@@ -48,7 +48,7 @@ export function FilterSelect({
             {...triggerProps}
             {...select.searchInputProps}
             aria-label={label}
-            className="field-sizing-content max-w-44 min-w-12 bg-transparent text-muted outline-none"
+            className="field-sizing-content max-w-44 min-w-12 bg-transparent text-muted text-ellipsis outline-none"
           />
           <ChevronToggle isOpen={select.isOpen} onToggle={select.toggle} className="right-3.5" />
         </>
@@ -60,7 +60,9 @@ export function FilterSelect({
             aria-label={label}
             className="flex size-full items-center gap-1 pr-8 pl-3.5 text-left outline-none"
           >
-            {label}: {select.selectedText}
+            <span className="truncate">
+              {label}: {select.selectedText}
+            </span>
           </button>
           <ChevronDown
             aria-hidden="true"

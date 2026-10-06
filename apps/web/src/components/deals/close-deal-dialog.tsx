@@ -2,6 +2,7 @@ import {
   CloseDealPayload,
   type Deal,
   DealClosed,
+  formatDealValue,
   LostReason,
   lostReasonLabels,
 } from "@crm/contract"
@@ -13,7 +14,6 @@ import { Button } from "#src/components/ui/button.tsx"
 import { Select } from "#src/components/ui/select.tsx"
 import { TextArea } from "#src/components/ui/text-area.tsx"
 import { firstPathKey } from "#src/lib/form-errors.ts"
-import { formatDealValue } from "#src/lib/format.ts"
 import { useCloseDeal } from "#src/lib/use-close-deal.ts"
 
 type CloseDealMode = "choose" | "WON" | "LOST"

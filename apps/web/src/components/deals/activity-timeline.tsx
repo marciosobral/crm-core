@@ -1,25 +1,9 @@
-import type { DealActivity } from "@crm/contract"
-import { dealStatusLabels, lostReasonLabels } from "@crm/contract"
+import { type DealActivity, describeDealActivity } from "@crm/contract"
 import { DateTime } from "effect"
 import { Activity, MessageSquare } from "lucide-react"
 import { cn } from "#src/lib/cn.ts"
 import { formatRelative } from "#src/lib/format.ts"
 import { CommentComposer } from "./comment-composer.tsx"
-
-const eventText = (event: Exclude<DealActivity, { kind: "COMMENT" }>) => {
-  switch (event.kind) {
-    case "CREATED":
-      return "Negócio criado"
-    case "SELLER_ASSIGNED":
-      return `Vendedor ${event.seller.name} atribuído ao negócio`
-    case "STATUS_CHANGED":
-      return `Status alterado para ${dealStatusLabels[event.status]}`
-    case "WON":
-      return "Negócio marcado como ganho"
-    case "LOST":
-      return `Negócio marcado como perdido: ${lostReasonLabels[event.lostReason]}`
-  }
-}
 
 function TimelineItem({ activity }: { activity: DealActivity }) {
   const isComment = activity.kind === "COMMENT"
@@ -59,7 +43,7 @@ function TimelineItem({ activity }: { activity: DealActivity }) {
             isComment ? "text-muted" : "text-white",
           )}
         >
-          {activity.kind === "COMMENT" ? activity.body : eventText(activity)}
+          {describeDealActivity(activity)}
         </p>
       </article>
     </li>

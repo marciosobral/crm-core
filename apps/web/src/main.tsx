@@ -39,6 +39,16 @@ const queryClient = new QueryClient({
 const router = createRouter({
   routeTree,
   context: { queryClient },
+  // Search params stay plain strings (`?idleDays=7`): the default JSON codec would quote numeric strings, and the library decoder turns numeric text into numbers.
+  parseSearch: (searchString) => Object.fromEntries(new URLSearchParams(searchString)),
+  stringifySearch: (search) => {
+    const query = new URLSearchParams(
+      Object.entries(search).flatMap(([key, value]) =>
+        value === undefined ? [] : [[key, String(value)]],
+      ),
+    ).toString()
+    return query === "" ? "" : `?${query}`
+  },
   // The API may be waking up (Render free tier), so show progress instead of a blank page.
   defaultPendingComponent: PendingScreen,
   defaultPendingMs: 500,
