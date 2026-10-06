@@ -1,6 +1,7 @@
 import { expect, it } from "@effect/vitest"
 import { Effect, Layer, Schema, Stream } from "effect"
 import { AiError, LanguageModel } from "effect/unstable/ai"
+import type { SqlClient } from "effect/unstable/sql"
 import { demoPassword, seededEmails, seededUserIds, sellerPassword } from "#src/testing/database.ts"
 import {
   jsonOf,
@@ -523,16 +524,34 @@ const nextStepReply = JSON.stringify({
   reason: "O cliente pediu desconto no pagamento à vista.",
 })
 
+interface Usage {
+  readonly input?: number
+  readonly cachedInput?: number
+  readonly output?: number
+  readonly reasoning?: number
+}
+
 const fakeLanguageModel = (
   reply: Effect.Effect<string, AiError.AiError>,
   prompts: Array<string> = [],
+  usage: Usage = {},
 ) =>
   Layer.effect(
     LanguageModel.LanguageModel,
     LanguageModel.make({
       generateText: (options) => {
         prompts.push(JSON.stringify(options.prompt.content))
-        return Effect.map(reply, (text) => [{ type: "text", text }])
+        return Effect.map(reply, (text) => [
+          { type: "text", text },
+          {
+            type: "finish",
+            reason: "stop",
+            usage: {
+              inputTokens: { total: usage.input, cacheRead: usage.cachedInput },
+              outputTokens: { total: usage.output, reasoning: usage.reasoning },
+            },
+          },
+        ])
       },
       streamText: () => Stream.empty,
     }),
@@ -548,6 +567,32 @@ const failingModel = fakeLanguageModel(
   ),
 )
 
+const AiUsageRows = Schema.Array(
+  Schema.Struct({
+    userId: Schema.String,
+    dealId: Schema.NullOr(Schema.String),
+    feature: Schema.String,
+    provider: Schema.String,
+    model: Schema.String,
+    reasoningEffort: Schema.NullOr(Schema.String),
+    outcome: Schema.String,
+    inputTokens: Schema.NullOr(Schema.Number),
+    cachedInputTokens: Schema.NullOr(Schema.Number),
+    outputTokens: Schema.NullOr(Schema.Number),
+    reasoningTokens: Schema.NullOr(Schema.Number),
+    durationMs: Schema.Number,
+  }),
+)
+
+const aiUsageRows = (sql: SqlClient.SqlClient) =>
+  sql`
+    SELECT user_id AS "userId", deal_id AS "dealId", feature, provider, model,
+           reasoning_effort AS "reasoningEffort", outcome, input_tokens AS "inputTokens",
+           cached_input_tokens AS "cachedInputTokens", output_tokens AS "outputTokens",
+           reasoning_tokens AS "reasoningTokens", duration_ms AS "durationMs"
+    FROM ai_usage ORDER BY created_at
+  `.pipe(Effect.flatMap(Schema.decodeUnknownEffect(AiUsageRows)))
+
 const suggestNextStep = (send: Send, cookie: string, id: string) =>
   send(
     new Request(`http://localhost/deals/${id}/next-step`, { method: "POST", headers: { cookie } }),
@@ -556,8 +601,13 @@ const suggestNextStep = (send: Send, cookie: string, id: string) =>
 it.effect("suggests the next step from the deal and its timeline", () =>
   Effect.gen(function* () {
     const prompts: Array<string> = []
-    const { send } = yield* makeTestApiWith(
-      fakeLanguageModel(Effect.succeed(nextStepReply), prompts),
+    const { send, sql } = yield* makeTestApiWith(
+      fakeLanguageModel(Effect.succeed(nextStepReply), prompts, {
+        input: 500,
+        cachedInput: 0,
+        output: 40,
+        reasoning: 12,
+      }),
     )
     const cookie = yield* loginAs(send, seededEmails.ana, sellerPassword)
     const leadId = yield* createLead(send, cookie)
@@ -574,6 +624,23 @@ it.effect("suggests the next step from the deal and its timeline", () =>
     expect(prompts[0]).toContain("Cliente pediu desconto à vista")
     expect(prompts[0]).not.toContain("thiago@academiax.com.br")
     expect(prompts[0]).not.toContain("11983111234")
+    const ids = yield* seededUserIds(sql)
+    const rows = yield* aiUsageRows(sql)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      userId: ids.ana,
+      dealId,
+      feature: "NEXT_STEP",
+      provider: "openai",
+      model: "gpt-6-luna",
+      reasoningEffort: "low",
+      outcome: "SUCCEEDED",
+      inputTokens: 500,
+      cachedInputTokens: 0,
+      outputTokens: 40,
+      reasoningTokens: 12,
+    })
+    expect(rows[0]?.durationMs).toBeGreaterThanOrEqual(0)
   }).pipe(Effect.scoped),
 )
 
@@ -594,26 +661,36 @@ it.effect("suggests next steps only on open deals the user can see", () =>
     expect(closed.status).toBe(409)
     expect(yield* jsonOf(closed)).toMatchObject({ _tag: "DealClosed" })
     expect(prompts).toHaveLength(0)
+    expect(yield* aiUsageRows(sql)).toHaveLength(0)
   }).pipe(Effect.scoped),
 )
 
 it.effect("answers 503 when the assistant fails or has no key", () =>
   Effect.gen(function* () {
     for (const api of [makeTestApi, makeTestApiWith(failingModel)]) {
-      const { send } = yield* api
+      const { send, sql } = yield* api
       const cookie = yield* loginAs(send, seededEmails.ana, sellerPassword)
       const leadId = yield* createLead(send, cookie)
       const dealId = decodeId(yield* jsonOf(yield* createDeal(send, cookie, { leadId }))).id
       const response = yield* suggestNextStep(send, cookie, dealId)
       expect(response.status).toBe(503)
       expect(yield* jsonOf(response)).toMatchObject({ _tag: "AssistantUnavailable" })
+      const rows = yield* aiUsageRows(sql)
+      expect(rows).toHaveLength(1)
+      expect(rows[0]).toMatchObject({
+        outcome: "FAILED",
+        inputTokens: null,
+        cachedInputTokens: null,
+        outputTokens: null,
+        reasoningTokens: null,
+      })
     }
   }).pipe(Effect.scoped),
 )
 
 it.effect("limits suggestions to five per user per minute", () =>
   Effect.gen(function* () {
-    const { send } = yield* makeTestApiWith(fakeLanguageModel(Effect.succeed(nextStepReply)))
+    const { send, sql } = yield* makeTestApiWith(fakeLanguageModel(Effect.succeed(nextStepReply)))
     const ana = yield* loginAs(send, seededEmails.ana, sellerPassword)
     const demo = yield* loginAs(send, seededEmails.demo, demoPassword)
     const leadId = yield* createLead(send, ana)
@@ -622,6 +699,7 @@ it.effect("limits suggestions to five per user per minute", () =>
       expect((yield* suggestNextStep(send, ana, dealId)).status).toBe(200)
     const limited = yield* suggestNextStep(send, ana, dealId)
     expect(limited.status).toBe(429)
+    expect(yield* aiUsageRows(sql)).toHaveLength(5)
     const body = Schema.decodeUnknownSync(
       Schema.Struct({
         _tag: Schema.Literal("AssistantRateLimited"),

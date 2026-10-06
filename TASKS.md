@@ -74,6 +74,7 @@ Decisions: comments live on deals only; the timeline mixes comments with system 
 - [x] Contract and endpoint with typed errors (provider failure, missing data)
 - [x] Web: trigger and display on the deal details
 - [x] Tests with a mocked provider layer
+- [x] Record AI usage per user (tokens, model, outcome) in `ai_usage`
 
 Decisions: next-step suggestion on open deals; provider-agnostic `LanguageModel` with OpenAI (`gpt-6-luna` by default) as the only provider; optional key (503 without it); on demand, 5 per user per minute; suggestions are not persisted.
 
