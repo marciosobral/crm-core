@@ -60,7 +60,8 @@ pnpm dev
 | `pnpm dev` | API (watch mode) + web (Vite) |
 | `pnpm build` | production build of the web app |
 | `pnpm typecheck` | `tsc` across all packages |
-| `pnpm test` | tests (Vitest) |
+| `pnpm test` | API tests (Vitest, in-memory PGlite) |
+| `pnpm test:e2e` | web end-to-end tests (Playwright, Chromium) against an isolated API and web server on ports 3101/5174; run `pnpm --filter @crm/web exec playwright install chromium` once |
 | `pnpm lint` / `pnpm lint:fix` | Biome |
 | `pnpm --filter @crm/api eval:assistant` | runs the assistant chat questions (data tools, how-to, unsupported, refusals) through the real model against a seeded in-memory database and prints a pass/fail table; needs `AI_API_KEY`, not part of CI |
 

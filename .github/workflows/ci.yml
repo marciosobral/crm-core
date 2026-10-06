@@ -23,6 +23,8 @@ jobs:
       - run: pnpm build
         env:
           VITE_API_URL: https://crm-core-api.marciosobral.com
+      - run: pnpm --filter @crm/web exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
 
   deploy:
     needs: check

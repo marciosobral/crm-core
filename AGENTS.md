@@ -23,9 +23,10 @@ packages/contract/   HttpApi contract + shared Schemas (source of truth for the 
 | Lint / fix | `pnpm lint` / `pnpm lint:fix` |
 | Typecheck | `pnpm typecheck` |
 | Test | `pnpm test` |
+| End-to-end test | `pnpm test:e2e` |
 | Build | `pnpm build` |
 
-Before calling work done, run lint, typecheck, test and build. All must pass.
+Before calling work done, run lint, typecheck, test, build and test:e2e. All must pass.
 
 `pnpm dev` runs through Turborepo in strict env mode: variables set in the shell (e.g. `PORT=3002 pnpm dev`) are dropped. Change them in the app's `.env` instead.
 
@@ -35,6 +36,7 @@ Before calling work done, run lint, typecheck, test and build. All must pass.
 - Timeouts are set in `apps/api/vitest.config.ts` (test 10s, hook 10s, teardown 5s). Keep them in any new Vitest config.
 - Also bound the command itself (e.g. a shell or tool timeout) so a hung process cannot block the session.
 - Tests use in-memory PGlite; never point tests at a real database.
+- `pnpm test:e2e` (Playwright, `apps/web/e2e`) starts its own API (ports 3101/5174, in-memory PGlite) so it does not clash with `pnpm dev`; it needs Chromium once (`pnpm --filter @crm/web exec playwright install chromium`). `pnpm test` stays API-only.
 
 ## Language
 
