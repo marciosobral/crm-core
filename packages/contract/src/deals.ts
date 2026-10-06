@@ -115,6 +115,9 @@ export const AddDealCommentPayload = Schema.Struct({
   body: requiredText(commentMaxLength),
 })
 
+export const DealNextStep = Schema.Struct({ action: Schema.String, reason: Schema.String })
+export type DealNextStep = typeof DealNextStep.Type
+
 export class InvalidDealLead extends Schema.TaggedError<InvalidDealLead>()(
   "InvalidDealLead",
   {},
@@ -131,6 +134,18 @@ export class DealClosed extends Schema.TaggedError<DealClosed>()(
   "DealClosed",
   {},
   { httpApiStatus: 409 },
+) {}
+
+export class AssistantRateLimited extends Schema.TaggedError<AssistantRateLimited>()(
+  "AssistantRateLimited",
+  { retryAfterSeconds: Schema.Int },
+  { httpApiStatus: 429 },
+) {}
+
+export class AssistantUnavailable extends Schema.TaggedError<AssistantUnavailable>()(
+  "AssistantUnavailable",
+  {},
+  { httpApiStatus: 503 },
 ) {}
 
 const DealIdParams = { id: Schema.String.check(Schema.isUUID()) }
@@ -201,5 +216,19 @@ export class DealsGroup extends HttpApiGroup.make("deals")
       payload: AddDealCommentPayload,
       success: DealComment.pipe(HttpApiSchema.status(201)),
       error: [HttpApiError.Forbidden, HttpApiError.NotFound, HttpApiError.ServiceUnavailable],
+    }).middleware(Authorization),
+  )
+  .add(
+    HttpApiEndpoint.post("suggestNextStep", "/deals/:id/next-step", {
+      params: DealIdParams,
+      success: DealNextStep,
+      error: [
+        HttpApiError.Forbidden,
+        HttpApiError.NotFound,
+        DealClosed,
+        AssistantRateLimited,
+        AssistantUnavailable,
+        HttpApiError.ServiceUnavailable,
+      ],
     }).middleware(Authorization),
   ) {}

@@ -6,6 +6,9 @@ settings:
 
 catalogs:
   default:
+    '@effect/ai-openai':
+      specifier: 4.0.0-rc.117
+      version: 4.0.0-rc.117
     '@effect/platform-node':
       specifier: 4.0.0-rc.117
       version: 4.0.0-rc.117
@@ -47,6 +50,9 @@ importers:
       '@crm/contract':
         specifier: workspace:*
         version: link:../../packages/contract
+      '@effect/ai-openai':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.117(effect@4.0.0-rc.117)
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-rc.117(effect@4.0.0-rc.117)(redis@6.2.1)
@@ -341,6 +347,11 @@ packages:
   '@cspotcode/source-map-support@0.8.1':
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
     engines: {node: '>=12'}
+
+  '@effect/ai-openai@4.0.0-rc.117':
+    resolution: {integrity: sha512-EGQtI0Y8B/PgEQ3ObZ8RYfIwTL5f5gXegO386aoskR4S5XrDr42mJk+7gJ/86SQ1mc38eYD4zEHz8f4Q3RkUgg==}
+    peerDependencies:
+      effect: ^4.0.0-rc.117
 
   '@effect/platform-node-shared@4.0.0-rc.117':
     resolution: {integrity: sha512-GyRkEfLBG49MwJe+/XDPiXYcQ44RA9p2z0AurlsWhR1cd1PqOUMEZU1pORL+/R5hR8aH6ZuqoJYD8lAc6h+wlA==}
@@ -2085,6 +2096,10 @@ snapshots:
   '@cspotcode/source-map-support@0.8.1':
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
+
+  '@effect/ai-openai@4.0.0-rc.117(effect@4.0.0-rc.117)':
+    dependencies:
+      effect: 4.0.0-rc.117
 
   '@effect/platform-node-shared@4.0.0-rc.117(effect@4.0.0-rc.117)':
     dependencies:

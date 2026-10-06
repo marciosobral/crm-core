@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest"
-import { ConfigProvider, Effect, Exit, Redacted } from "effect"
-import { SeedConfig } from "./config.ts"
+import { ConfigProvider, Effect, Exit, Option, Redacted } from "effect"
+import { AssistantConfig, SeedConfig } from "./config.ts"
 
 const parseSeedConfig = (values: Record<string, string>) =>
   Effect.exit(SeedConfig.parse(ConfigProvider.fromUnknown(values)))
@@ -55,5 +55,24 @@ it.effect("refuses an unknown NODE_ENV instead of skipping the production guard"
       SEED_SELLER_PASSWORD: exampleSellerPassword,
     })
     expect(Exit.isFailure(exit)).toBe(true)
+  }),
+)
+
+it.effect("defaults the assistant to OpenAI with no key", () =>
+  Effect.gen(function* () {
+    const config = yield* AssistantConfig.parse(ConfigProvider.fromUnknown({}))
+    expect(config.provider).toBe("openai")
+    expect(config.model).toBe("gpt-6-luna")
+    expect(config.reasoningEffort).toBe("low")
+    expect(Option.isNone(config.apiKey)).toBe(true)
+  }),
+)
+
+it.effect("refuses an unknown AI_PROVIDER or AI_REASONING_EFFORT", () =>
+  Effect.gen(function* () {
+    for (const values of [{ AI_PROVIDER: "acme" }, { AI_REASONING_EFFORT: "extreme" }]) {
+      const exit = yield* Effect.exit(AssistantConfig.parse(ConfigProvider.fromUnknown(values)))
+      expect(Exit.isFailure(exit)).toBe(true)
+    }
   }),
 )

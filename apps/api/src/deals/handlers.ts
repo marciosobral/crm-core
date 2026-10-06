@@ -1,15 +1,22 @@
 import {
+  AssistantRateLimited,
+  AssistantUnavailable,
   CrmApi,
   CurrentUser,
   DealClosed,
   DealDetails,
+  DealNextStep,
   hasPermission,
   InvalidDealLead,
   InvalidDealSeller,
+  isClosedStatus,
   type User,
 } from "@crm/contract"
-import { Effect, Option } from "effect"
+import { Duration, Effect, Option } from "effect"
+import { AiError, LanguageModel } from "effect/unstable/ai"
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
+import { RateLimiter } from "effect/unstable/persistence"
+import { nextStepPrompt } from "#src/assistant/prompt.ts"
 import { requirePermission } from "#src/auth/permissions.ts"
 import { LeadsRepository } from "#src/leads/repository.ts"
 import { failUnavailable, nullIfBlank } from "#src/platform/http.ts"
@@ -21,6 +28,8 @@ export const DealsLive = HttpApiBuilder.group(CrmApi, "deals", (handlers) =>
     const deals = yield* DealsRepository
     const sellers = yield* SellersRepository
     const leads = yield* LeadsRepository
+    const languageModel = yield* LanguageModel.LanguageModel
+    const rateLimiter = yield* RateLimiter.RateLimiter
 
     const findVisibleDeal = (user: User, id: string) =>
       Effect.gen(function* () {
@@ -134,6 +143,52 @@ export const DealsLive = HttpApiBuilder.group(CrmApi, "deals", (handlers) =>
             Effect.annotateLogs({ dealId: params.id }),
           )
           return comment
+        }).pipe(Effect.catchTag("SqlError", failUnavailable)),
+      )
+      .handle("suggestNextStep", ({ params }) =>
+        Effect.gen(function* () {
+          const user = yield* requirePermission("deal.suggest")
+          const deal = yield* findVisibleDeal(user, params.id)
+          if (isClosedStatus(deal.status)) return yield* new DealClosed()
+          yield* rateLimiter
+            .consume({
+              key: `next-step:${user.id}`,
+              limit: 5,
+              window: "1 minute",
+              algorithm: "fixed-window",
+              onExceeded: "fail",
+            })
+            .pipe(
+              Effect.catchTag("RateLimiterError", ({ reason }) =>
+                Effect.fail(
+                  reason._tag === "RateLimitExceeded"
+                    ? new AssistantRateLimited({
+                        retryAfterSeconds: Math.ceil(Duration.toSeconds(reason.retryAfter)),
+                      })
+                    : new AssistantUnavailable(),
+                ),
+              ),
+            )
+          const activities = yield* deals.listActivities(params.id)
+          const { value } = yield* languageModel
+            .generateObject({
+              prompt: nextStepPrompt(deal, activities),
+              schema: DealNextStep,
+              objectName: "next_step",
+            })
+            .pipe(
+              Effect.timeout("15 seconds"),
+              Effect.tapError((error) =>
+                Effect.logWarning("Next step suggestion failed").pipe(
+                  Effect.annotateLogs({
+                    dealId: params.id,
+                    error: AiError.isAiError(error) ? error.reason._tag : error._tag,
+                  }),
+                ),
+              ),
+              Effect.mapError(() => new AssistantUnavailable()),
+            )
+          return { action: value.action.trim(), reason: value.reason.trim() }
         }).pipe(Effect.catchTag("SqlError", failUnavailable)),
       )
   }),

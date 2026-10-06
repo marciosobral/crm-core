@@ -37,3 +37,15 @@ export const SeedConfig = Config.all({
       : Effect.succeed({ demoPassword, sellerPassword }),
   ),
 )
+
+export const AssistantConfig = Config.all({
+  provider: Config.schema(Schema.Literals(["openai"]), "AI_PROVIDER").pipe(
+    Config.withDefault("openai"),
+  ),
+  apiKey: Config.Redacted("AI_API_KEY").pipe(Config.option),
+  model: Config.String("AI_MODEL").pipe(Config.withDefault("gpt-6-luna")),
+  reasoningEffort: Config.schema(
+    Schema.Literals(["none", "minimal", "low", "medium", "high", "xhigh", "max"]),
+    "AI_REASONING_EFFORT",
+  ).pipe(Config.withDefault("low")),
+})

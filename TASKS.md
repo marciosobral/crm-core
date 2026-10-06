@@ -69,11 +69,11 @@ Decisions: comments live on deals only; the timeline mixes comments with system 
 
 ## 6. AI assistance
 
-- [ ] Pick the feature: deal comment summary or next-step suggestion
-- [ ] Effect AI with a provider layer; API key through `Config.Redacted`
-- [ ] Contract and endpoint with typed errors (provider failure, missing data)
+- [x] Pick the feature: deal comment summary or next-step suggestion
+- [x] Effect AI with a provider layer; API key through `Config.Redacted`
+- [x] Contract and endpoint with typed errors (provider failure, missing data)
 - [ ] Web: trigger and display on the deal details
-- [ ] Tests with a mocked provider layer
+- [x] Tests with a mocked provider layer
 
 Open decisions: which feature, which provider and model, cost and rate limits.
 

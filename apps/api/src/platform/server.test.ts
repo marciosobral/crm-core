@@ -2,12 +2,14 @@ import { NodeHttpServer } from "@effect/platform-node"
 import { expect, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 import { HttpClient, HttpClientRequest, HttpRouter } from "effect/unstable/http"
+import { UnconfiguredLanguageModel } from "#src/assistant/provider.ts"
 import { demoPassword, seededEmails, TestDatabase } from "#src/testing/database.ts"
 import { makeTestApi, sessionCookieOf } from "#src/testing/http.ts"
 import { ApiRoutes } from "./server.ts"
 
 const ServerTestLayer = HttpRouter.serve(ApiRoutes, { disableLogger: true }).pipe(
   Layer.provide(TestDatabase),
+  Layer.provide(UnconfiguredLanguageModel),
   Layer.provideMerge(NodeHttpServer.layerTest),
 )
 

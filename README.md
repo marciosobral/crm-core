@@ -76,6 +76,10 @@ pnpm dev
 | api | `NODE_ENV` | `development`, `test` or `production` (any other value fails startup); `production` refuses the example seed passwords (default `development`; the Dockerfile sets `production`) |
 | api | `SEED_DEMO_PASSWORD` | password of the seeded demo account (supervisor) (min. 12 characters, applied once by the seed migration) |
 | api | `SEED_SELLER_PASSWORD` | password of the other seeded accounts (the sellers) (same rules) |
+| api | `AI_PROVIDER` | language model provider for the assistant; only `openai` (default `openai`) |
+| api | `AI_API_KEY` | provider API key; without it the assistant answers 503 |
+| api | `AI_MODEL` | model id (default `gpt-6-luna`) |
+| api | `AI_REASONING_EFFORT` | reasoning effort sent to the model: `none`, `minimal`, `low`, `medium`, `high`, `xhigh` or `max` (default `low`) |
 | web | `VITE_API_URL` | API base URL |
 
 ## Demo accounts
