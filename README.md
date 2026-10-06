@@ -58,7 +58,7 @@ pnpm dev
 | Command | What it does |
 |---|---|
 | `pnpm dev` | API (watch mode) + web (Vite) |
-| `pnpm build` | production build of the web app |
+| `pnpm build` | production build of the web app; fails if `VITE_API_URL` is missing, so keep `apps/web/.env` from the setup above |
 | `pnpm typecheck` | `tsc` across all packages |
 | `pnpm test` | API tests (Vitest, in-memory PGlite) |
 | `pnpm test:e2e` | web end-to-end tests (Playwright, Chromium) against an isolated API and web server on ports 3101/5174; run `pnpm --filter @crm/web exec playwright install chromium` once |
@@ -83,7 +83,7 @@ pnpm dev
 | api | `AI_MODEL` | model id (default `gpt-6-luna`) |
 | api | `AI_REASONING_EFFORT` | reasoning effort sent to the model: `none`, `minimal`, `low`, `medium`, `high`, `xhigh` or `max` (default `low`) |
 | api | `AI_MAX_OUTPUT_TOKENS` | cap on tokens generated per model call, reasoning tokens included; integer of at least 1 (default `2000`) |
-| web | `VITE_API_URL` | API base URL |
+| web | `VITE_API_URL` | API base URL (required by `pnpm dev` and `pnpm build`; baked into the bundle at build time) |
 
 All dates and "today" use the business time zone `America/Sao_Paulo` for every user; instants are stored as UTC.
 

@@ -94,9 +94,9 @@ Decisions: tools instead of RAG, so numbers are exact and permission scoped; up 
 
 - [x] Web tests for the main flows (login, create lead)
 - [x] README: concise "Technical decisions" section
-- [ ] Review README setup steps from a clean clone
-- [ ] Make the repository public
-- [ ] Final check of the live app with the demo user
+- [x] Review README setup steps from a clean clone
+- [x] Make the repository public
+- [x] Final check of the live app with the demo user
 
 ## Out of scope
 
