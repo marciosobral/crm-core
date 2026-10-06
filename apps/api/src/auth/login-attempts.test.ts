@@ -2,6 +2,7 @@ import { expect, it } from "@effect/vitest"
 import { Deferred, Effect, Fiber, Queue, Result } from "effect"
 import { TestClock } from "effect/testing"
 import {
+  ClientVerificationBusy,
   LoginAttempts,
   LoginAttemptsLive,
   makeLoginAttempts,
@@ -9,6 +10,7 @@ import {
 } from "./login-attempts.ts"
 
 const email = "demo@crm-core.dev"
+const client = "203.0.113.1"
 
 const reserve = (attempts: LoginAttempts["Service"], address: string, count: number) =>
   Effect.forEach(Array.from({ length: count }), () => attempts.reserveAttempt(address), {
@@ -94,7 +96,7 @@ const isLimited = (attempts: LoginAttempts["Service"], address: string) =>
 
 it.effect("never evicts a limited key, even when flooded with new emails", () =>
   Effect.gen(function* () {
-    const attempts = yield* makeLoginAttempts({ maxTrackedEmails: 3 })
+    const attempts = yield* makeLoginAttempts({ maxTrackedKeys: 3 })
     yield* reserve(attempts, email, 5)
     yield* Effect.forEach(
       Array.from({ length: 50 }, (_, index) => `flood-${index}@crm-core.dev`),
@@ -105,20 +107,16 @@ it.effect("never evicts a limited key, even when flooded with new emails", () =>
   }),
 )
 
-it.effect("drops expired keys first, then the key with the fewest failures", () =>
+it.effect("evicts the oldest key that is not limited", () =>
   Effect.gen(function* () {
-    const attempts = yield* makeLoginAttempts({ maxTrackedEmails: 3 })
-    yield* reserve(attempts, "expired@crm-core.dev", 4)
-    yield* TestClock.adjust("16 minutes")
-    yield* reserve(attempts, "many@crm-core.dev", 4)
-    yield* reserve(attempts, "few@crm-core.dev", 1)
-    yield* reserve(attempts, "other@crm-core.dev", 2)
-    expect(yield* isLimited(attempts, "many@crm-core.dev")).toBe(false)
-    expect(yield* isLimited(attempts, "many@crm-core.dev")).toBe(true)
+    const attempts = yield* makeLoginAttempts({ maxTrackedKeys: 3 })
+    yield* reserve(attempts, "limited@crm-core.dev", 5)
+    yield* reserve(attempts, "oldest@crm-core.dev", 4)
+    yield* reserve(attempts, "newer@crm-core.dev", 1)
     yield* reserve(attempts, "new@crm-core.dev", 1)
-    expect(yield* isLimited(attempts, "many@crm-core.dev")).toBe(true)
-    yield* reserve(attempts, "few@crm-core.dev", 4)
-    expect(yield* isLimited(attempts, "few@crm-core.dev")).toBe(false)
+    expect(yield* isLimited(attempts, "limited@crm-core.dev")).toBe(true)
+    yield* reserve(attempts, "oldest@crm-core.dev", 4)
+    expect(yield* isLimited(attempts, "oldest@crm-core.dev")).toBe(false)
   }),
 )
 
@@ -127,9 +125,10 @@ it.effect("drops expired keys first, then the key with the fewest failures", () 
 const fillVerificationQueue = (attempts: LoginAttempts["Service"], gate: Deferred.Deferred<void>) =>
   Effect.gen(function* () {
     const running = yield* Queue.unbounded<void>()
-    const fibers = yield* Effect.forEach(Array.from({ length: 22 }), () =>
+    const fibers = yield* Effect.forEach(Array.from({ length: 22 }), (_, index) =>
       Effect.forkChild(
         attempts.withVerificationSlot(
+          `client-${index}`,
           Queue.offer(running, undefined).pipe(Effect.andThen(Deferred.await(gate))),
         ),
         { startImmediately: true },
@@ -145,11 +144,11 @@ it.effect("rejects verifications beyond the running and waiting capacity", () =>
     const attempts = yield* LoginAttempts
     const gate = yield* Deferred.make<void>()
     const fibers = yield* fillVerificationQueue(attempts, gate)
-    const overflow = yield* Effect.flip(attempts.withVerificationSlot(Effect.void))
+    const overflow = yield* Effect.flip(attempts.withVerificationSlot(client, Effect.void))
     expect(overflow).toBeInstanceOf(VerificationQueueFull)
     yield* Deferred.succeed(gate, undefined)
     yield* Effect.forEach(fibers, Fiber.join, { discard: true })
-    yield* attempts.withVerificationSlot(Effect.void)
+    yield* attempts.withVerificationSlot(client, Effect.void)
   }).pipe(Effect.provide(LoginAttemptsLive)),
 )
 
@@ -159,7 +158,7 @@ it.effect("frees the slots of interrupted waiting verifications", () =>
     const gate = yield* Deferred.make<void>()
     const fibers = yield* fillVerificationQueue(attempts, gate)
     yield* Effect.forEach(fibers.slice(2), Fiber.interrupt, { discard: true })
-    const probe = yield* Effect.forkChild(attempts.withVerificationSlot(Effect.void), {
+    const probe = yield* Effect.forkChild(attempts.withVerificationSlot(client, Effect.void), {
       startImmediately: true,
     })
     yield* Deferred.succeed(gate, undefined)
@@ -177,25 +176,39 @@ it.effect("keeps the slot of an interrupted verification until it completes", ()
     const interruption = yield* Effect.forkChild(Fiber.interrupt(holder), {
       startImmediately: true,
     })
-    expect(yield* Effect.flip(attempts.withVerificationSlot(Effect.void))).toBeInstanceOf(
+    expect(yield* Effect.flip(attempts.withVerificationSlot(client, Effect.void))).toBeInstanceOf(
       VerificationQueueFull,
     )
     yield* Deferred.succeed(gate, undefined)
     yield* Fiber.join(interruption)
-    yield* attempts.withVerificationSlot(Effect.void)
+    yield* attempts.withVerificationSlot(client, Effect.void)
   }).pipe(Effect.provide(LoginAttemptsLive)),
 )
 
-it.effect("evicts a key whose stored timestamps mostly expired", () =>
+it.effect("caps parallel verifications per client and leaves room for others", () =>
   Effect.gen(function* () {
-    const attempts = yield* makeLoginAttempts({ maxTrackedEmails: 2 })
-    yield* reserve(attempts, "stale@crm-core.dev", 4)
-    yield* TestClock.adjust("14 minutes")
-    yield* reserve(attempts, "stale@crm-core.dev", 1)
-    yield* TestClock.adjust("2 minutes")
-    yield* reserve(attempts, "fresh@crm-core.dev", 2)
-    yield* reserve(attempts, "new@crm-core.dev", 1)
-    yield* reserve(attempts, "fresh@crm-core.dev", 3)
-    expect(yield* isLimited(attempts, "fresh@crm-core.dev")).toBe(true)
-  }),
+    const attempts = yield* LoginAttempts
+    const gate = yield* Deferred.make<void>()
+    const running = yield* Queue.unbounded<void>()
+    const hold = attempts.withVerificationSlot(
+      client,
+      Queue.offer(running, undefined).pipe(Effect.andThen(Deferred.await(gate))),
+    )
+    const holders = yield* Effect.forEach(Array.from({ length: 2 }), () =>
+      Effect.forkChild(hold, { startImmediately: true }),
+    )
+    yield* Queue.take(running)
+    yield* Queue.take(running)
+    expect(yield* Effect.flip(attempts.withVerificationSlot(client, Effect.void))).toBeInstanceOf(
+      ClientVerificationBusy,
+    )
+    const otherClient = yield* Effect.forkChild(
+      attempts.withVerificationSlot("203.0.113.2", Effect.void),
+      { startImmediately: true },
+    )
+    yield* Deferred.succeed(gate, undefined)
+    yield* Fiber.join(otherClient)
+    yield* Effect.forEach(holders, Fiber.join, { discard: true })
+    yield* attempts.withVerificationSlot(client, Effect.void)
+  }).pipe(Effect.provide(LoginAttemptsLive)),
 )
