@@ -23,8 +23,8 @@
   "devDependencies": {
     "@effect/sql-pglite": "catalog:",
     "@effect/vitest": "catalog:",
-    "@types/node": "24.13.6",
+    "@types/node": "24.19.2",
     "typescript": "catalog:",
-    "vitest": "5.0.2"
+    "vitest": "5.0.5"
   }
 }

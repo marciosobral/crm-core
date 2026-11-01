@@ -3,12 +3,12 @@ packages:
   - "packages/*"
 
 catalog:
-  effect: 4.0.0-rc.117
-  "@effect/platform-node": 4.0.0-rc.117
-  "@effect/sql-pg": 4.0.0-rc.117
-  "@effect/sql-pglite": 4.0.0-rc.117
-  "@effect/vitest": 4.0.0-rc.117
-  "@effect/ai-openai": 4.0.0-rc.117
+  effect: 4.0.7
+  "@effect/platform-node": 4.0.7
+  "@effect/sql-pg": 4.0.7
+  "@effect/sql-pglite": 4.0.7
+  "@effect/vitest": 4.0.7
+  "@effect/ai-openai": 4.0.7
   typescript: 7.0.2
 
 overrides:

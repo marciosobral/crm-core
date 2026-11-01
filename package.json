@@ -13,8 +13,8 @@
     "format": "biome format --write ."
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.14",
-    "turbo": "2.11.4",
+    "@biomejs/biome": "2.6.4",
+    "turbo": "2.11.10",
     "typescript": "catalog:"
   },
   "packageManager": "pnpm@10.34.5",
